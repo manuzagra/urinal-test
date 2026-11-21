@@ -29,3 +29,4 @@ button:disabled { opacity:.45; cursor:default; } button:active:not(:disabled) { 
 #toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,40px); background:#000d; color:#fff; padding:10px 16px; border-radius:12px; opacity:0; transition:.25s; pointer-events:none; }
 #toast.show { opacity:1; transform:translate(-50%,0); }
 .err { color:var(--red); min-height:1.4em; }
+.context { margin:.2em 0 .6em; padding:8px 12px; border-radius:10px; background:var(--card2); font-weight:600; }

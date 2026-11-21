@@ -20,6 +20,16 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
+// Scenario ids this browser has already played, so new games avoid repeats.
+function rememberSeen(ids) {
+  const seen = store.get('urinal:seen') ?? [];
+  if (ids.every((id) => seen.includes(id))) return;
+  store.set('urinal:seen', [...seen.filter((id) => !ids.includes(id)), ...ids].slice(-300));
+}
+
+const spotLabel = (sc, k) => ({ stall: 'the stall', low: `the kid urinal (${Number(k) + 1})` }[sc.spots[k]] ?? `urinal ${Number(k) + 1}`);
+const context = (sc) => (sc.context ? `<p class="context">📍 ${esc(sc.context)}</p>` : '');
+
 const m = location.pathname.match(/^\/g\/([A-Za-z]{4})/);
 m ? gameScreen(m[1].toUpperCase()) : homeScreen();
 
@@ -33,7 +43,8 @@ function homeScreen() {
       <h2>Organize a game</h2>
       <label>Your nickname</label><input name="nickname" maxlength="20" value="${esc(lastName)}" required autocomplete="off">
       <label>Number of situations</label>
-      <select name="count"><option value="5">5 (quick)</option><option value="10" selected>10 (all)</option></select>
+      <select name="count"><option value="5">5 (quick)</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20 (long)</option></select>
+      <p class="muted small">Situations are random, and ones you have already played on this phone come last.</p>
       <p class="err"></p><button>Create game</button>
     </form>
     <form class="card" id="join">
@@ -51,7 +62,7 @@ function homeScreen() {
     try { await fn(f); } catch (x) { err.textContent = x.message; }
   });
   run($app.querySelector('#create'), async (f) => {
-    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count) } });
+    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count), exclude: store.get('urinal:seen') ?? [] } });
     store.set('urinal:' + r.code, { token: r.token });
     location.href = '/g/' + r.code;
   });
@@ -71,6 +82,7 @@ function gameScreen(code) {
   const apply = (s) => {
     const key = JSON.stringify(s);
     if (key === lastKey) return;
+    if (s.scenarios) rememberSeen(s.scenarios.map((x) => x.id));
     // While playing, other people's progress must not re-render the scene
     // under the player's finger (it would swallow a tap): patch the host bar only.
     const { players, ...rest } = s;
@@ -158,6 +170,7 @@ function gameScreen(code) {
       <div class="card">
         <div class="row between"><h2>${idx + 1}. ${esc(sc.title)}</h2><span class="muted">${answered}/${st.total} answered</span></div>
         <div class="progress"><i style="width:${(100 * answered) / st.total}%"></i></div>
+        ${context(sc)}
         <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? 'You came in from the left. <b>Tap where you would pee.</b>' : 'Answer locked ✓'}</p>
         ${renderScene(sc, { mine, pickable: mine === undefined })}
         <div class="dots">${st.scenarios.map((s, i) => `<button data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''} ${i === idx ? 'cur' : ''}">${i + 1}</button>`).join('')}</div>
@@ -183,11 +196,12 @@ function gameScreen(code) {
       const voters = Object.values(counts).reduce((a, b) => a + b, 0);
       const top = Math.max(0, ...Object.values(counts));
       const mine = st.myAnswers[sc.id];
-      const label = (k) => (sc.spots[k] === 'stall' ? 'the stall' : `urinal ${Number(k) + 1}`);
+      const label = (k) => spotLabel(sc, k);
       const popular = Object.keys(counts).filter((k) => counts[k] === top && top > 0).map(label).join(' / ') || '—';
       const verdict = mine === undefined ? '<span class="muted">You did not answer</span>' : r.correct.includes(mine) ? '<span class="ok">You got it ✓</span>' : '<span class="bad">Not this one ✗</span>';
       const who = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>: ${ids.map((id) => esc(name[id])).join(', ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
+        ${context(sc)}
         ${renderScene(sc, { mine, correct: r.correct, votes: counts, total: voters })}
         <p style="margin:.8em 0 .2em">✅ <b>Correct:</b> ${r.correct.map(label).join(' / ')} &nbsp; 👥 <b>Most picked:</b> ${popular}</p>
         <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${who}</div>`;
