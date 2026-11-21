@@ -1,0 +1,11 @@
+{
+  "name": "urinal-test",
+  "private": true,
+  "type": "module",
+  "description": "Group urinal-test party game. Zero dependencies: Node >= 22.13 (built-in node:sqlite).",
+  "scripts": {
+    "dev": "node --watch --disable-warning=ExperimentalWarning server.mjs",
+    "start": "node --disable-warning=ExperimentalWarning server.mjs",
+    "test": "node --test --disable-warning=ExperimentalWarning test/*.test.mjs"
+  }
+}
