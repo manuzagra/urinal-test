@@ -1,5 +1,6 @@
 // Draws a bathroom scenario as SVG. Pure function: (scenario, options) -> string.
-//   options.mine     spot index the viewer picked (blue marker)
+//   options.mine     spot index picked by the player being shown (blue marker)
+//   options.mineLabel label under that marker (default YOU)
 //   options.correct  [spot indexes] highlighted green (results)
 //   options.votes    { spot: count }  vote bars (results)
 //   options.total    number of voters (for percentages)
@@ -7,7 +8,7 @@
 // Spot kinds: urinal | low (kid height) | dirty | stall | broken | sink (decoration)
 // occupied[i]: a pose string, or { pose, tag, say } (tag = name label, say = speech bubble)
 // dividers: [i, ...] = a privacy panel between spot i and i+1
-const SPOT_W = 130, LEFT = 64, FLOOR = 272, H = 346;
+const SPOT_W = 130, LEFT = 64, FLOOR = 272;
 
 const SHIRTS = ['#e4572e', '#2a9d8f', '#f4a261', '#6a4c93', '#3a86ff', '#8ac926', '#ff6b9d', '#5b6770'];
 const PANTS = ['#355070', '#3d405b', '#2b2d42', '#5c4d3c', '#46494c'];
@@ -79,18 +80,32 @@ function divider(x) {
   return `<rect x="${x - 5}" y="84" width="10" height="150" rx="3" fill="#c8d6df" stroke="${INK}" stroke-width="2.5"/>`;
 }
 
-const textW = (t, px) => Math.min(150, [...String(t)].length * px * 0.58 + 18);
-function tag(x, text) {
-  const w = textW(text, 13);
-  return `<g><rect x="${x - w / 2}" y="4" width="${w}" height="24" rx="12" fill="#ffd23f" stroke="${INK}" stroke-width="2"/>
-    <text x="${x}" y="21" text-anchor="middle" font-size="13" font-weight="800" fill="${INK}" font-family="system-ui,sans-serif">${esc(text)}</text></g>`;
+// Text inside the scene is scaled with the number of spots (k), so that it stays
+// readable (~12px) on a phone where a 7-urinal scene is shrunk to ~370px wide.
+const FONT = 'font-family="system-ui,sans-serif"';
+const textW = (t, px) => [...String(t)].length * px * 0.6 + px * 1.2;
+function pill(x, y, text, k, { fill, color, max = Infinity, stroke = '' }) {
+  let fs = 13 * k;
+  const h = fs * 1.6;
+  if (textW(text, fs) > max) fs = Math.max(fs * 0.75, max / ([...text].length * 0.6 + 1.2)); // shrink long names...
+  const fit = Math.floor((max / fs - 1.2) / 0.6);
+  if ([...text].length > fit) text = [...text].slice(0, fit - 1).join('') + '…'; // ...then cut them
+  const w = Math.min(max, textW(text, fs));
+  return `<g><rect x="${x - w / 2}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="${fill}" ${stroke}/>
+    <text x="${x}" y="${y + h / 2 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="${color}" ${FONT}>${esc(text)}</text></g>`;
 }
-function bubble(x, text, flip, kid) {
-  const w = textW(text, 13), y = kid ? 104 : 38, bx = flip ? x - 16 - w : x + 16;
-  const tail = flip ? `M${x - 24} ${y + 26} L${x - 8} ${y + 42} L${x - 34} ${y + 26}` : `M${x + 24} ${y + 26} L${x + 8} ${y + 42} L${x + 34} ${y + 26}`;
-  return `<g><path d="${tail}" fill="#fff" stroke="${INK}" stroke-width="2"/>
-    <rect x="${bx}" y="${y}" width="${w}" height="28" rx="12" fill="#fff" stroke="${INK}" stroke-width="2"/>
-    <text x="${bx + w / 2}" y="${y + 19}" text-anchor="middle" font-size="13" font-weight="700" fill="${INK}" font-family="system-ui,sans-serif">${esc(text)}</text></g>`;
+const tag = (x, text, k) => pill(x, -15 * k - 6, text, k, { fill: '#ffd23f', color: INK, stroke: `stroke="${INK}" stroke-width="2"` });
+function bubble(x, text, k, { flip, kid, W }) {
+  const fs = 13 * k, h = fs * 1.7, w = textW(text, fs);
+  const headTop = kid ? FLOOR - 174 * 0.72 - 16 : 76;
+  const y = headTop - h - 10;
+  let bx = flip ? x - 10 - w : x + 10;
+  bx = Math.max(4, Math.min(W - w - 4, bx));
+  const tx = flip ? x - 12 : x + 12;
+  return `<g><path d="M${tx - 10} ${y + h - 2} L${x} ${headTop} L${tx + 10} ${y + h - 2}" fill="#fff" stroke="${INK}" stroke-width="2"/>
+    <rect x="${bx}" y="${y}" width="${w}" height="${h}" rx="${h / 2.4}" fill="#fff" stroke="${INK}" stroke-width="2"/>
+    <rect x="${tx - 9}" y="${y + h - 5}" width="18" height="5" fill="#fff"/>
+    <text x="${bx + w / 2}" y="${y + h * 0.68}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${INK}" ${FONT}>${esc(text)}</text></g>`;
 }
 
 function guy(x, pose, seed, { ghost = false } = {}) {
@@ -138,6 +153,8 @@ function guy(x, pose, seed, { ghost = false } = {}) {
 export function renderScene(s, o = {}) {
   const n = s.spots.length;
   const W = LEFT + n * SPOT_W + 16;
+  const k = Math.max(1.4, n * 0.36);
+  const TOP = Math.round(17 * k + 12), BOTTOM = FLOOR + Math.round(8 + 22 * k + 18 * k);
   const votes = o.votes ?? {};
   const maxVotes = Math.max(1, ...Object.values(votes));
   let parts = '';
@@ -161,16 +178,15 @@ export function renderScene(s, o = {}) {
     if (pickable) parts += `<rect x="${x - 62}" y="40" width="124" height="${FLOOR - 24}" fill="transparent"/>`;
     parts += '</g>';
 
-    // numbering under the floor
-    if (kind !== 'sink') parts += `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="13" fill="#9aa7b2" font-family="system-ui,sans-serif">${kind === 'stall' ? 'stall' : i + 1}</text>`;
-    if (isMine) parts += `<g><rect x="${x - 26}" y="${FLOOR + 28}" width="52" height="20" rx="10" fill="#1e90ff"/><text x="${x}" y="${FLOOR + 42}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">YOU</text></g>`;
-    if (isCorrect) parts += `<g><circle cx="${x + 48}" cy="52" r="16" fill="#2ecc71" stroke="#fff" stroke-width="3"/><path d="M${x + 40} 52 l6 6 l11 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+    // spot number at the bottom, "you"/name marker above it
+    if (kind !== 'sink') parts += `<text x="${x}" y="${BOTTOM - 8}" text-anchor="middle" font-size="${13 * k}" font-weight="700" fill="#e3eaef" ${FONT}>${kind === 'stall' ? 'WC' : i + 1}</text>`;
+    if (isMine) parts += pill(x, FLOOR + 8, String(o.mineLabel ?? 'you').toUpperCase(), k, { fill: '#1e90ff', color: '#fff', max: SPOT_W - 4 });
+    if (isCorrect) { const r = 11 * Math.min(k, 2); parts += `<g transform="translate(${x + 60 - r * 0.7},${48 + r * 0.3})"><circle r="${r}" fill="#2ecc71" stroke="#fff" stroke-width="3"/><path d="M${-r * 0.45} 0 l${r * 0.35} ${r * 0.35} l${r * 0.6} ${-r * 0.65}" fill="none" stroke="#fff" stroke-width="${r / 4}" stroke-linecap="round" stroke-linejoin="round"/></g>`; }
     if (o.votes && free && !occ) {
-      const v = votes[i] ?? 0, pct = o.total ? Math.round((100 * v) / o.total) : 0;
+      const v = votes[i] ?? 0, bw = SPOT_W * 0.6;
       parts += `<g>
-        <text x="${x}" y="22" text-anchor="middle" font-size="20" font-weight="800" fill="#fff" font-family="system-ui,sans-serif" stroke="${INK}" stroke-width="4" paint-order="stroke">${v}</text>
-        <rect x="${x - 18}" y="30" width="36" height="5" rx="2.5" fill="#00000033"/><rect x="${x - 18}" y="30" width="${Math.round(36 * v / maxVotes)}" height="5" rx="2.5" fill="#ffd23f"/>
-        <text x="${x}" y="${FLOOR + 22}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="system-ui,sans-serif" stroke="${INK}" stroke-width="3" paint-order="stroke">${pct}%</text></g>`;
+        <text x="${x}" y="${-8 - 4 * k}" text-anchor="middle" font-size="${17 * k}" font-weight="800" fill="#fff" ${FONT} stroke="${INK}" stroke-width="${2 + k * 1.5}" paint-order="stroke">${v}</text>
+        <rect x="${x - bw / 2}" y="${-6 - k}" width="${bw}" height="${3 * k}" rx="${1.5 * k}" fill="#00000033"/><rect x="${x - bw / 2}" y="${-6 - k}" width="${Math.round(bw * v / maxVotes)}" height="${3 * k}" rx="${1.5 * k}" fill="#ffd23f"/></g>`;
     }
   });
 
@@ -178,18 +194,18 @@ export function renderScene(s, o = {}) {
   s.spots.forEach((kind, i) => {
     const raw = s.occupied[i];
     if (!raw || typeof raw !== 'object' || kind === 'stall') return;
-    if (raw.tag) parts += tag(cx(i), raw.tag);
-    if (raw.say) parts += bubble(cx(i), raw.say, i === n - 1, raw.pose === 'kid');
+    if (raw.tag) parts += tag(cx(i), raw.tag, k);
+    if (raw.say) parts += bubble(cx(i), raw.say, k, { flip: i >= n / 2, kid: raw.pose === 'kid', W });
   });
 
-  return `<svg class="scene" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
+  return `<svg class="scene" viewBox="0 ${-TOP} ${W} ${TOP + BOTTOM}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
     <defs>
       <pattern id="tiles" width="46" height="46" patternUnits="userSpaceOnUse"><rect width="46" height="46" fill="#dbe7ee"/><path d="M0 0H46V46" fill="none" stroke="#bccbd6" stroke-width="2"/></pattern>
       <pattern id="floor" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#7e8c96"/><rect width="20" height="20" fill="#8e9ba5"/><rect x="20" y="20" width="20" height="20" fill="#8e9ba5"/></pattern>
     </defs>
-    <rect width="${W}" height="${FLOOR}" fill="url(#tiles)"/>
+    <rect y="${-TOP}" width="${W}" height="${FLOOR + TOP}" fill="url(#tiles)"/>
     <rect y="${FLOOR - 4}" width="${W}" height="8" fill="#5f6d77"/>
-    <rect y="${FLOOR + 4}" width="${W}" height="${H - FLOOR - 4}" fill="url(#floor)"/>
+    <rect y="${FLOOR + 4}" width="${W}" height="${BOTTOM - FLOOR - 4}" fill="url(#floor)"/>
     <rect y="${FLOOR - 70}" width="${W}" height="3" fill="#b2c2ce"/>
     <g>
       <rect x="6" y="70" width="46" height="${FLOOR - 70}" rx="3" fill="#a9724a" stroke="${INK}" stroke-width="3"/>

@@ -90,5 +90,10 @@ picks 5/10/15/20 random situations; ones this browser already played come last.
 *Play again* after the reveal starts a new round for the same group (everyone is moved
 automatically) with situations not yet played in that chain.
 
-Next ideas: bigger scene on phones, timer per scenario, SSE instead of polling, scenario
+v0.3: mobile-first pass (scene text scales with the number of spots, ≥44px tap targets,
+safe areas). Results have a player picker: tap anybody to see their pick drawn on every
+scene and whether they got it right. The organizer picks 3–30 situations for every round,
+including *Play again*.
+
+Next ideas: timer per scenario, SSE instead of polling, scenario
 editor, i18n (ES/EN).

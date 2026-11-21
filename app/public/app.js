@@ -28,6 +28,8 @@ function rememberSeen(ids) {
 }
 
 const spotLabel = (sc, k) => ({ stall: 'the stall', low: `the kid urinal (${Number(k) + 1})` }[sc.spots[k]] ?? `urinal ${Number(k) + 1}`);
+const COUNTS = [3, 5, 10, 15, 20, 30];
+const countOptions = (sel) => COUNTS.map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${n} situations${n <= 3 ? ' (quick)' : n >= 20 ? ' (long)' : ''}</option>`).join('');
 const context = (sc) => (sc.context ? `<p class="context">📍 ${esc(sc.context)}</p>` : '');
 
 const m = location.pathname.match(/^\/g\/([A-Za-z]{4})/);
@@ -43,7 +45,7 @@ function homeScreen() {
       <h2>Organize a game</h2>
       <label>Your nickname</label><input name="nickname" maxlength="20" value="${esc(lastName)}" required autocomplete="off">
       <label>Number of situations</label>
-      <select name="count"><option value="5">5 (quick)</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20 (long)</option></select>
+      <select name="count">${countOptions(10)}</select>
       <p class="muted small">Situations are random, and ones you have already played on this phone come last.</p>
       <p class="err"></p><button>Create game</button>
     </form>
@@ -76,7 +78,7 @@ function homeScreen() {
 
 // ---------------------------------------------------------------- game
 function gameScreen(code) {
-  let st = null, lastKey = '', lastRestKey = '', idx = null, busy = false, following = false;
+  let st = null, lastKey = '', lastRestKey = '', idx = null, busy = false, following = false, viewing = null;
   const token = () => store.get('urinal:' + code)?.token;
 
   const apply = (s) => {
@@ -190,7 +192,7 @@ function gameScreen(code) {
         <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? 'You came in from the left. <b>Tap where you would pee.</b>' : 'Answer locked ✓'}</p>
         ${renderScene(sc, { mine, pickable: mine === undefined })}
         <div class="dots">${st.scenarios.map((s, i) => `<button data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''} ${i === idx ? 'cur' : ''}">${i + 1}</button>`).join('')}</div>
-        <div class="row between"><button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>← Back</button>
+        <div class="nav"><button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>← Back</button>
           <button class="secondary" data-go="${idx + 1}" ${idx === st.total - 1 ? 'disabled' : ''}>Next →</button></div>
       </div>${hostBar()}`;
   }
@@ -205,33 +207,46 @@ function gameScreen(code) {
 
   function resultsView() {
     const name = Object.fromEntries(st.players.map((p) => [p.id, p.nickname]));
+    if (!(viewing in name)) viewing = st.you.id;
+    const isMe = viewing === st.you.id;
+    const who = isMe ? 'You' : esc(name[viewing]);
     const ranked = [...st.players].sort((a, b) => st.scores[b.id] - st.scores[a.id] || a.nickname.localeCompare(b.nickname));
+    const medal = (p) => { const better = ranked.filter((q) => st.scores[q.id] > st.scores[p.id]).length; return ['🥇', '🥈', '🥉'][better] ?? `${better + 1}.`; };
+    const pickOf = (r) => { for (const [k, ids] of Object.entries(r.votes)) if (ids.includes(viewing)) return Number(k); return undefined; };
+
     const cards = st.results.map((r, i) => {
       const sc = st.scenarios.find((s) => s.id === r.scenarioId);
       const counts = Object.fromEntries(Object.entries(r.votes).map(([k, v]) => [k, v.length]));
       const voters = Object.values(counts).reduce((a, b) => a + b, 0);
       const top = Math.max(0, ...Object.values(counts));
-      const mine = st.myAnswers[sc.id];
+      const pick = pickOf(r);
       const label = (k) => spotLabel(sc, k);
       const popular = Object.keys(counts).filter((k) => counts[k] === top && top > 0).map(label).join(' / ') || '—';
-      const verdict = mine === undefined ? '<span class="muted">You did not answer</span>' : r.correct.includes(mine) ? '<span class="ok">You got it ✓</span>' : '<span class="bad">Not this one ✗</span>';
-      const who = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>: ${ids.map((id) => esc(name[id])).join(', ')}</div>`).join('');
+      const verdict = pick === undefined ? `<span class="muted">${isMe ? 'You did' : who + ' did'} not answer</span>`
+        : r.correct.includes(pick) ? `<span class="ok">${who} got it ✓</span>` : `<span class="bad">${who}: wrong ✗</span>`;
+      const whoPicked = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>${r.correct.includes(Number(k)) ? ' ✅' : ''}: ${ids
+        .map((id) => `<button class="name${id === viewing ? ' sel' : ''}" data-view="${id}">${esc(name[id])}</button>`).join(' ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
         ${context(sc)}
-        ${renderScene(sc, { mine, correct: r.correct, votes: counts, total: voters })}
-        <p style="margin:.8em 0 .2em">✅ <b>Correct:</b> ${r.correct.map(label).join(' / ')} &nbsp; 👥 <b>Most picked:</b> ${popular}</p>
-        <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${who}</div>`;
+        ${renderScene(sc, { mine: pick, mineLabel: isMe ? 'you' : name[viewing], correct: r.correct, votes: counts, total: voters })}
+        <div class="facts"><div>✅ <b>Correct:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>Most picked:</b> ${popular}</div></div>
+        <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${whoPicked}</div>`;
     }).join('');
+
     $app.innerHTML = `${header()}
-      <div class="card"><h2>🏆 Results</h2><table class="board">${ranked.map((p, i) => `<tr><td>${['🥇', '🥈', '🥉'][i] ?? i + 1 + '.'} ${esc(p.nickname)}${p.id === st.you.id ? ' (you)' : ''}</td><td>${st.scores[p.id]}/${st.total}</td></tr>`).join('')}</table></div>
+      <div class="card"><h2>🏆 Results</h2><p class="muted small" style="margin:0 0 .4em">Tap a player to see their answers.</p>
+        <table class="board">${ranked.map((p) => `<tr class="pick${p.id === viewing ? ' sel' : ''}" data-view="${p.id}"><td>${medal(p)} ${esc(p.nickname)}${p.id === st.you.id ? ' (you)' : ''}</td><td>${st.scores[p.id]}/${st.total}</td></tr>`).join('')}</table></div>
+      <div class="viewing"><span class="muted small">Showing answers of</span>${ranked.map((p) => `<button class="name${p.id === viewing ? ' sel' : ''}" data-view="${p.id}">${p.id === st.you.id ? 'You' : esc(p.nickname)}</button>`).join('')}</div>
       ${st.you.isHost ? '' : '<p class="muted center">If the organizer starts another round, you will be moved there automatically.</p>'}
       ${cards}<p class="center"><a href="/"><button class="secondary">New game</button></a></p>
-      ${st.you.isHost ? `<div class="hostbar row between"><span>Same group, ${st.total} new situations</span><button data-act="again">Play again</button></div>` : ''}`;
+      ${st.you.isHost ? `<div class="hostbar row between"><span>Play again, same group:</span><select id="againCount">${countOptions(COUNTS.includes(st.total) ? st.total : 10)}</select><button data-act="again">Play again</button></div>` : ''}`;
   }
 
   // one delegated click handler for every screen
   $app.addEventListener('click', async (e) => {
     const t = e.target;
+    const view = t.closest('[data-view]');
+    if (view) { viewing = Number(view.dataset.view); return render(); }
     const go = t.closest('[data-go]');
     if (go && !go.disabled) { idx = Number(go.dataset.go); return render(); }
     const a = t.closest('[data-act]')?.dataset.act;
@@ -240,7 +255,8 @@ function gameScreen(code) {
     else if (a === 'start') act('start');
     else if (a === 'again') {
       try {
-        const r = await api(`/api/games/${code}/again`, { method: 'POST', token: token(), body: { exclude: store.get('urinal:seen') ?? [] } });
+        const scenarioCount = Number($app.querySelector('#againCount')?.value) || st.total;
+        const r = await api(`/api/games/${code}/again`, { method: 'POST', token: token(), body: { scenarioCount, exclude: store.get('urinal:seen') ?? [] } });
         store.set('urinal:' + r.code, { token: r.token });
         location.href = '/g/' + r.code;
       } catch (x) { toast(x.message); }
