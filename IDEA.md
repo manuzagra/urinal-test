@@ -79,10 +79,16 @@ adjacent, etc.) written by us per scenario. Start with ~10–15 scenarios.
 driven by `status`) · `/g/[code]/host` controls shown only to the host.
 
 ## 8. Status
-v0 implemented: lobby with invite link/code, 10 scenarios, play flow, organizer
-start/reveal, results (correct spot, votes per spot, who picked what, scoreboard).
-The organizer also plays. Answers are locked once given; the server withholds the
-correct answers and everybody's picks until reveal.
+v0 implemented: lobby with invite link/code, play flow, organizer start/reveal, results
+(correct spot, votes per spot, who picked what, scoreboard). The organizer also plays.
+Answers are locked once given; the server withholds the correct answers and everybody's
+picks until the organizer reveals.
 
-Next ideas: more scenarios (dividers, sinks, more poses), timer per scenario, SSE
-instead of polling, scenario editor, i18n (ES/EN), PR-based flow.
+v0.2: 70 situations (dividers, sinks, kid-height and dirty urinals, occupied stalls, name
+tags, speech bubbles, context lines; several accept more than one answer). The organizer
+picks 5/10/15/20 random situations; ones this browser already played come last.
+*Play again* after the reveal starts a new round for the same group (everyone is moved
+automatically) with situations not yet played in that chain.
+
+Next ideas: bigger scene on phones, timer per scenario, SSE instead of polling, scenario
+editor, i18n (ES/EN).

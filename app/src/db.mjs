@@ -32,5 +32,9 @@ export function openDb(path) {
       PRIMARY KEY (game_code, player_id, scenario_id)
     );
   `);
+  // Added after v0: migrate older databases in place.
+  const cols = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
+  if (!cols.includes('history')) db.exec("ALTER TABLE games ADD COLUMN history TEXT NOT NULL DEFAULT '[]'"); // ids played in this group's rounds so far
+  if (!cols.includes('next_code')) db.exec('ALTER TABLE games ADD COLUMN next_code TEXT'); // the "play again" round
   return db;
 }

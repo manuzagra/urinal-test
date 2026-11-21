@@ -25,11 +25,14 @@
 ## Architecture in 30 seconds (full spec: IDEA.md)
 - `app/server.mjs` boots `app/src/app.mjs` (HTTP + JSON API + static files) on
   `node:sqlite` (`app/src/db.mjs`). **Zero npm dependencies; needs Node ≥ 22.13.**
-- `app/src/scenarios.mjs`: the situations as data + `correctSpots()` (farthest from the
-  nearest guy; a free stall wins only if the best urinal is adjacent to someone; per
-  scenario `correct` overrides). Add scenarios here.
-- `app/public/scene.js`: draws a scenario as SVG (urinals, stall, broken sign, guys with
-  poses `standing|phone|leaning|wide|hips|kid`). `app/public/app.js`: screens
+- `app/src/scenarios.mjs`: the 70 situations as data (format documented at the top) +
+  `correctSpots()` (farthest from the nearest guy, dividers add distance, guys in stalls
+  don't count; a free stall wins only if the best urinal is adjacent to someone; kid/dirty
+  urinals are a last resort; per-scenario `correct` overrides). Add scenarios here; the
+  tests check every answer is pickable.
+- `app/public/scene.js`: draws a scenario as SVG (urinal/low/dirty/stall/broken/sink,
+  dividers, guys with poses `standing|phone|leaning|wide|hips|kid|drunk`, name tags and
+  speech bubbles). `app/public/app.js`: screens
   (home, join, lobby, play, waiting, results), polling every 1.5 s.
 - Auth: random token per player, header `x-token`; the organizer is the creating player.
   Answers are first-write-wins. The API must never expose `correct`/explanations or other
@@ -42,6 +45,10 @@
 - While players are answering, polling must not re-render the scene (it swallowed taps).
   `app.js` only patches the host bar in that state; keep it that way.
 - `node:sqlite` is experimental: the scripts pass `--disable-warning=ExperimentalWarning`.
+- *Play again*: `POST /api/games/:code/again` (organizer, after reveal) creates the next
+  round and stores `next_code`; clients that see `next` in the state auto-join it.
+  `games.history` carries the played ids along the chain. `db.mjs` adds new columns with
+  `ALTER TABLE` when missing, so old DBs keep working.
 - DB lives in `DATA_DIR` (`app/data` in dev, gitignored; `/data` volume in prod). Games
   older than 48 h are purged when a new game is created.
 - Real-browser check used so far: Playwright (`mcr.microsoft.com/playwright:v1.49.0-jammy`
@@ -51,6 +58,6 @@
 
 ## Status & ideas
 v0 is done and works (see IDEA.md §8). Likely next steps, in the user's priority order:
-iterate on gameplay/visuals with the user → first release (`develop` → `main`) → Coolify
-deploy (README) → more scenarios (dividers, sinks, more poses), bigger scene on phones
-(6–7 urinals are small), timer per scenario, SSE instead of polling, ES/EN.
+iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release (`develop` → `main`) → Coolify
+deploy (README) → bigger scene on phones
+(6–7 urinals are small, speech bubbles hard to read), timer per scenario, SSE instead of polling, ES/EN.
