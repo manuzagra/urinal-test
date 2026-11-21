@@ -12,6 +12,8 @@
 // explanation: shown after the reveal. Spot numbers in text are 1-based, like on screen.
 // The room is always entered from the left (the door is drawn on the left).
 
+import { ES } from './scenarios.es.mjs';
+
 const row = (n, extra = []) => [...Array(n).fill('urinal'), ...extra];
 const U = 'urinal', LOW = 'low', DIRTY = 'dirty', STALL = 'stall', BROKEN = 'broken', SINK = 'sink';
 
@@ -572,8 +574,19 @@ export function correctSpots(s) {
   return farthest(free);
 }
 
+// Texts in the game's language (English lives inline above, Spanish in scenarios.es.mjs).
+export const LANGS = ['es', 'en'];
+const TEXTS = { es: ES };
+export function localize(s, lang) {
+  const tr = TEXTS[lang]?.[s.id];
+  if (!tr) return s;
+  const occupied = { ...s.occupied };
+  for (const [i, p] of Object.entries(tr.people ?? {})) occupied[i] = { ...(typeof occupied[i] === 'object' ? occupied[i] : { pose: occupied[i] }), ...p };
+  return { ...s, title: tr.title, explanation: tr.explanation, ...(s.context && { context: tr.context }), occupied };
+}
+
 // What the players get: everything but the answer.
-export function publicScenario(s) {
-  const { correct, explanation, ...rest } = s;
+export function publicScenario(s, lang) {
+  const { correct, explanation, ...rest } = localize(s, lang);
   return rest;
 }

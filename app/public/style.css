@@ -42,3 +42,9 @@ button.name.sel { background:var(--blue); color:#fff; }
 .hostbar button { flex:1 0 auto; } .hostbar span { flex:1 1 auto; }
 form.card > button { width:100%; margin-top:4px; }
 .hostbar select { flex:1 1 140px; width:auto; padding:10px; }
+.joke { margin:.7em 0 .3em; padding:10px 12px; border-radius:12px; background:#3a1d24; border:2px solid var(--red); font-weight:700; line-height:1.35; animation:wobble .5s ease-out 1; }
+.joke.kid { background:#3a321d; border-color:var(--accent); }
+.praise { margin:.6em 0 .2em; color:var(--green); font-weight:700; }
+.awards div { margin:.25em 0; }
+@keyframes wobble { 0% { transform:scale(.9) rotate(-2deg); } 60% { transform:scale(1.03) rotate(1deg); } 100% { transform:none; } }
+@media (prefers-reduced-motion: reduce) { .joke { animation:none; } }

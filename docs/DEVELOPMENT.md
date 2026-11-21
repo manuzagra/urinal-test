@@ -30,6 +30,14 @@
   don't count; a free stall wins only if the best urinal is adjacent to someone; kid/dirty
   urinals are a last resort; per-scenario `correct` overrides). Add scenarios here; the
   tests check every answer is pickable.
+- Languages: Spanish is the default. UI texts and jokes are in `app/public/i18n.js`
+  (ES + EN). Scenario texts are English inline in `scenarios.mjs` and Spanish in
+  `app/src/scenarios.es.mjs`; a test fails if a scenario lacks a translation. The game's
+  `lang` column decides the language; the server sends error `code`s that the client
+  translates.
+- Tone: it's a party game, keep the copy cheeky. Jokes for "very wrong" picks are
+  chosen by `awkward()` in `scene.js`. **Never a dick joke when the neighbour is a kid**
+  (tested).
 - `app/public/scene.js`: draws a scenario as SVG (urinal/low/dirty/stall/broken/sink,
   dividers, guys with poses `standing|phone|leaning|wide|hips|kid|drunk`, name tags and
   speech bubbles). `app/public/app.js`: screens
