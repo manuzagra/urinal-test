@@ -1,0 +1,27 @@
+# Development only: the devcontainer's `workspace` service.
+# Production is compose.prod.yaml (Coolify).
+name: urinal-test
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: sleep infinity
+    init: true
+    volumes:
+      - .:/workspace/app:cached
+      - commandhistory:/commandhistory
+      - npm-cache:/home/ubuntu/.npm
+      - claude-config:/home/ubuntu/.claude
+      - gh-config:/home/ubuntu/.config/gh
+    env_file: .env
+    environment:
+      DATA_DIR: /workspace/app/data
+
+volumes:
+  commandhistory:
+  npm-cache:
+  claude-config:
+  gh-config:

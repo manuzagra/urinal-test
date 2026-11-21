@@ -4,7 +4,7 @@ with the group and the "correct" answer. Idea and plan: [IDEA.md](IDEA.md).
 
 ## Develop
 1. VS Code → *Dev Containers: Reopen in Container* (creates `.env` from `.env.example`).
-2. `make dev` → http://localhost:3000 (currently a placeholder page).
+2. `make dev` → http://localhost:3000. Tests: `make test`.
 
 Without VS Code: `make build && make prod-local` → http://localhost:3001.
 
@@ -14,8 +14,7 @@ Without VS Code: `make build && make prod-local` → http://localhost:3001.
    compose file `/compose.prod.yaml`.
 3. On service `web` set the domain (e.g. `https://urinal.your-internal-domain`) and
    port `3000`.
-4. Environment variables: `APP_BASE_URL` (the public URL), `ORGANIZER_SECRET`
-   (long random string).
+4. No environment variables are required (invite links use the URL the organizer is on).
 5. Deploy. The SQLite database persists in the `appdata` volume. Check `/healthz`.
 
 Friends need access to the VPN (or expose the domain publicly) to open the link.

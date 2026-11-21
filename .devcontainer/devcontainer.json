@@ -1,0 +1,49 @@
+{
+  "name": "Urinal Test",
+  "dockerComposeFile": ["../docker-compose.yaml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspace/app",
+  "remoteUser": "ubuntu",
+  "shutdownAction": "stopCompose",
+
+  // Runs on the HOST before the container is built: creates .env if missing.
+  "initializeCommand": "bash .devcontainer/initialize.sh",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "ubuntu",
+      "userUid": "1000",
+      "userGid": "1000",
+      "upgradePackages": false
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": { "moby": false },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "containerEnv": {
+    "TZ": "Europe/Madrid",
+    "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
+    "GH_CONFIG_DIR": "/home/ubuntu/.config/gh"
+  },
+  "remoteEnv": { "PATH": "/home/ubuntu/.local/bin:${containerEnv:PATH}" },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": { "editor.formatOnSave": true }
+    }
+  },
+
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "web", "onAutoForward": "notify" } },
+
+  "postCreateCommand": "bash .devcontainer/postCreateScript.sh"
+}
