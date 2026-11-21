@@ -245,8 +245,8 @@ function gameScreen(code) {
       ${masters.length ? `<div>${t('award.master')}: ${names(masters)}</div>` : ''}
       <div>${flashers.length ? `${t('award.flasher')}: ${names(flashers)} <span class="muted small">(${t('award.flasherN', { n: maxFlash })})</span>` : t('award.none')}</div></div>`;
 
-    // jokes rotate per viewed player, so a page never repeats one before the list runs out
-    const used = {}, base = Math.abs(hash(viewing));
+    // jokes rotate per viewed player and game, so a page never repeats one before the list runs out
+    const used = {}, base = Math.abs(hash(code + ':' + viewing)); // new round, new starting joke
     const nextJoke = (kind, vars) => pick(kind, base + (used[kind] = (used[kind] ?? -1) + 1), vars);
     const cards = st.results.map((r, i) => {
       const sc = scOf(r);
