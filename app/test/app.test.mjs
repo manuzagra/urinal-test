@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/db.mjs';
 import { createApp, pickScenarios } from '../src/app.mjs';
+import { LEVELS } from '../src/scenarios.mjs';
 import { SCENARIOS, correctSpots, isPickable, localize } from '../src/scenarios.mjs';
 import { ES } from '../src/scenarios.es.mjs';
 import { awkward, jokeFor, renderScene } from '../public/scene.js';
@@ -150,13 +151,13 @@ test('language: Spanish by default, English on request, kept by play again; erro
     return { status: r.status, json: await r.json() };
   };
   try {
-    const es = (await call('/api/games', { method: 'POST', body: { nickname: 'A', scenarioCount: 70 } })).json;
+    const es = (await call('/api/games', { method: 'POST', body: { nickname: 'A', scenarioCount: 999 } })).json;
     const stEs = (await call(`/api/games/${es.code}`, { token: es.token })).json;
     assert.equal(stEs.lang, 'es');
     assert.equal(stEs.scenarios.find((x) => x.id === 'empty-room').title, 'Baño vacío');
     assert.equal(stEs.scenarios.find((x) => x.id === 'your-boss').occupied[0].tag, 'Tu jefe');
 
-    const en = (await call('/api/games', { method: 'POST', body: { nickname: 'A', scenarioCount: 70, lang: 'en' } })).json;
+    const en = (await call('/api/games', { method: 'POST', body: { nickname: 'A', scenarioCount: 999, lang: 'en' } })).json;
     const stEn = (await call(`/api/games/${en.code}`, { token: en.token })).json;
     assert.equal(stEn.lang, 'en');
     assert.equal(stEn.scenarios.find((x) => x.id === 'empty-room').title, 'Empty bathroom');
@@ -168,6 +169,10 @@ test('language: Spanish by default, English on request, kept by play again; erro
     assert.match(rev.results.find((x) => x.scenarioId === 'empty-room').explanation, /Nobody/);
     const again = (await call(`/api/games/${en.code}/again`, { method: 'POST', token: en.token, body: { scenarioCount: 3 } })).json;
     assert.equal((await call(`/api/games/${again.code}`, { token: again.token })).json.lang, 'en');
+    const hard = (await call('/api/games', { method: 'POST', body: { nickname: 'A', scenarioCount: 5, level: 'hard' } })).json;
+    const stHard = (await call(`/api/games/${hard.code}`, { token: hard.token })).json;
+    assert.equal(stHard.level, 'hard');
+    assert.ok(stHard.scenarios.every((x) => x.level === 'hard'));
 
     const dup = await call(`/api/games/${es.code}/join`, { method: 'POST', body: { nickname: 'a' } });
     assert.equal(dup.json.code, 'nickname_taken');
@@ -206,4 +211,16 @@ test('every wrong pick gets a joke and a speaker; right picks and no answer get 
     const j = jokeFor(s2, i, correctSpots(s2));
     assert.ok(j && j.near.length, `${s2.id}: wrong pick ${i} has no joke`);
   }
+});
+
+test('difficulty: every scenario has a level, enough of each, picking respects it', () => {
+  for (const sc of SCENARIOS) assert.ok(LEVELS.includes(sc.level), `${sc.id}: no level`);
+  for (const l of LEVELS) assert.ok(SCENARIOS.filter((x) => x.level === l).length >= 20, `only a few ${l}`);
+  const lvl = (id) => SCENARIOS.find((x) => x.id === id).level;
+  for (const l of LEVELS) assert.ok(pickScenarios(20, [], l).every((id) => lvl(id) === l), l);
+  const mixed = pickScenarios(9, [], 'mixed').map(lvl);
+  for (const l of LEVELS) assert.equal(mixed.filter((x) => x === l).length, 3, 'mixed = same amount of each');
+  const all = pickScenarios(30, [], 'hard');
+  assert.equal(all.length, 30, 'refills from other levels when the level runs out');
+  assert.equal(new Set(all).size, 30);
 });

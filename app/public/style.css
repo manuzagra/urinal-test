@@ -47,3 +47,6 @@ form.card > button { width:100%; margin-top:4px; }
 @keyframes pop { 0% { transform:scale(.6); opacity:0; } 70% { transform:scale(1.06); } 100% { transform:none; opacity:1; } }
 .scene .comic { transform-box:fill-box; transform-origin:50% 100%; animation:pop .45s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .scene .comic { animation:none; } }
+.lvl { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:99px; margin:0 0 .4em; background:var(--card2); }
+.lvl.easy { color:#7be495; } .lvl.medium { color:#ffd23f; } .lvl.hard { color:#ff8a8a; }
+.hostbar select { flex:1 1 120px; }

@@ -25,7 +25,9 @@
 ## Architecture in 30 seconds (full spec: IDEA.md)
 - `app/server.mjs` boots `app/src/app.mjs` (HTTP + JSON API + static files) on
   `node:sqlite` (`app/src/db.mjs`). **Zero npm dependencies; needs Node ≥ 22.13.**
-- `app/src/scenarios.mjs`: the 70 situations as data (format documented at the top) +
+- `app/src/scenarios.mjs`: the 89 situations as data, each with a difficulty in
+  `LEVEL_IDS` (easy/medium/hard; tests require ≥ 20 per level). `pickScenarios()` in
+  `app.mjs` picks by level, or levels in turns for `mixed`. Situations (format documented at the top) +
   `correctSpots()` (farthest from the nearest guy, dividers add distance, guys in stalls
   don't count; a free stall wins only if the best urinal is adjacent to someone; kid/dirty
   urinals are a last resort; per-scenario `correct` overrides). Add scenarios here; the
