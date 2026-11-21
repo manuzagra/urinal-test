@@ -5,6 +5,7 @@
 //   options.votes    { spot: count }  vote bars (results)
 //   options.total    number of voters (for percentages)
 //   options.pickable true => free spots are clickable (data-spot)
+//   options.peek     [spot indexes] of guys who get a 👀 bubble (they saw too much)
 // Spot kinds: urinal | low (kid height) | dirty | stall | broken | sink (decoration)
 // occupied[i]: a pose string, or { pose, tag, say } (tag = name label, say = speech bubble)
 // dividers: [i, ...] = a privacy panel between spot i and i+1
@@ -193,9 +194,11 @@ export function renderScene(s, o = {}) {
   for (const d of s.dividers ?? []) parts += divider(LEFT + (d + 1) * SPOT_W);
   s.spots.forEach((kind, i) => {
     const raw = s.occupied[i];
-    if (!raw || typeof raw !== 'object' || kind === 'stall') return;
-    if (raw.tag) parts += tag(cx(i), raw.tag, k);
-    if (raw.say) parts += bubble(cx(i), raw.say, k, { flip: i >= n / 2, kid: raw.pose === 'kid', W });
+    if (!raw || kind === 'stall') return;
+    const p = typeof raw === 'object' ? raw : { pose: raw };
+    const say = o.peek?.includes(i) ? '👀' : p.say; // a neighbour who saw too much
+    if (p.tag) parts += tag(cx(i), p.tag, k);
+    if (say) parts += bubble(cx(i), say, k, { flip: o.mine !== undefined ? o.mine < i : i >= n / 2, kid: p.pose === 'kid', W });
   });
 
   return `<svg class="scene" viewBox="0 ${-TOP} ${W} ${TOP + BOTTOM}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
@@ -214,4 +217,15 @@ export function renderScene(s, o = {}) {
     </g>
     ${parts}
   </svg>`;
+}
+
+// How embarrassing a pick is: a wrong pick right next to a guy at a urinal (no divider between).
+// 'kid' when a neighbour is a kid (never a dick joke there), 'sandwich' for two neighbours.
+export function awkward(sc, spot, correct) {
+  if (spot === undefined || correct.includes(spot) || sc.spots[spot] === 'stall') return null;
+  const divs = sc.dividers ?? [];
+  const pose = (j) => { const o = sc.occupied[j]; return typeof o === 'object' && o ? o.pose ?? 'standing' : o; };
+  const near = [spot - 1, spot + 1].filter((j) => pose(j) && sc.spots[j] !== 'stall' && !divs.includes(Math.min(j, spot)));
+  if (!near.length) return null;
+  return { kind: near.some((j) => pose(j) === 'kid') ? 'kid' : near.length > 1 ? 'sandwich' : 'roast', near };
 }

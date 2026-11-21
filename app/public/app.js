@@ -1,4 +1,5 @@
-import { renderScene } from '/scene.js';
+import { renderScene, awkward } from '/scene.js';
+import { LANGS, setLang, getLang, t, pick } from '/i18n.js';
 
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -10,14 +11,17 @@ const store = {
 async function api(path, { method = 'GET', body, token } = {}) {
   const r = await fetch(path, { method, headers: { 'content-type': 'application/json', ...(token && { 'x-token': token }) }, body: body && JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong'), { status: r.status });
+  if (!r.ok) {
+    const key = 'err.' + j.code, msg = t(key);
+    throw Object.assign(new Error(msg !== key ? msg : j.error || t('err.generic')), { status: r.status });
+  }
   return j;
 }
 
 function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
 // Scenario ids this browser has already played, so new games avoid repeats.
@@ -27,35 +31,41 @@ function rememberSeen(ids) {
   store.set('urinal:seen', [...seen.filter((id) => !ids.includes(id)), ...ids].slice(-300));
 }
 
-const spotLabel = (sc, k) => ({ stall: 'the stall', low: `the kid urinal (${Number(k) + 1})` }[sc.spots[k]] ?? `urinal ${Number(k) + 1}`);
+const spotLabel = (sc, k) => t({ stall: 'spot.stall', low: 'spot.low' }[sc.spots[k]] ?? 'spot.urinal', { n: Number(k) + 1 });
 const COUNTS = [3, 5, 10, 15, 20, 30];
-const countOptions = (sel) => COUNTS.map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${n} situations${n <= 3 ? ' (quick)' : n >= 20 ? ' (long)' : ''}</option>`).join('');
+const countOptions = (sel) => COUNTS.map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${t(n <= 3 ? 'count.quick' : n >= 20 ? 'count.long' : 'count.n', { n })}</option>`).join('');
 const context = (sc) => (sc.context ? `<p class="context">📍 ${esc(sc.context)}</p>` : '');
+const hash = (str) => { let h = 7; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) | 0; return h; };
 
+setLang(store.get('urinal:lang') ?? 'es');
 const m = location.pathname.match(/^\/g\/([A-Za-z]{4})/);
 m ? gameScreen(m[1].toUpperCase()) : homeScreen();
 
 // ---------------------------------------------------------------- home
 function homeScreen() {
+  document.title = t('app.name');
   const lastName = store.get('urinal:name') ?? '';
   $app.innerHTML = `
-    <div class="hero"><div class="big">🚽</div><h1>The Urinal Test</h1>
-      <p class="muted">Where would <em>you</em> pee? Play with your friends, then compare.</p></div>
+    <div class="hero"><div class="big">🚽</div><h1>${t('app.name')}</h1>
+      <p class="muted">${t('home.tagline')}</p></div>
     <form class="card" id="create">
-      <h2>Organize a game</h2>
-      <label>Your nickname</label><input name="nickname" maxlength="20" value="${esc(lastName)}" required autocomplete="off">
-      <label>Number of situations</label>
+      <h2>${t('home.create')}</h2>
+      <label>${t('home.nickname')}</label><input name="nickname" maxlength="20" value="${esc(lastName)}" placeholder="${t('home.placeholder')}" required autocomplete="off">
+      <label>${t('home.count')}</label>
       <select name="count">${countOptions(10)}</select>
-      <p class="muted small">Situations are random, and ones you have already played on this phone come last.</p>
-      <p class="err"></p><button>Create game</button>
+      <p class="muted small">${t('home.countHint')}</p>
+      <label>${t('home.lang')}</label>
+      <select name="lang" id="lang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === getLang() ? ' selected' : ''}>${v}</option>`).join('')}</select>
+      <p class="err"></p><button>${t('home.createBtn')}</button>
     </form>
     <form class="card" id="join">
-      <h2>Join a game</h2>
-      <label>Game code</label><input name="code" maxlength="4" style="text-transform:uppercase" required autocomplete="off">
-      <label>Your nickname</label><input name="nickname" maxlength="20" value="${esc(lastName)}" required autocomplete="off">
-      <p class="err"></p><button class="secondary">Join</button>
+      <h2>${t('home.join')}</h2>
+      <label>${t('home.code')}</label><input name="code" maxlength="4" style="text-transform:uppercase" required autocomplete="off">
+      <label>${t('home.nickname')}</label><input name="nickname" maxlength="20" value="${esc(lastName)}" placeholder="${t('home.placeholder')}" required autocomplete="off">
+      <p class="err"></p><button class="secondary">${t('home.joinBtn')}</button>
     </form>`;
 
+  $app.querySelector('#lang').addEventListener('change', (e) => { store.set('urinal:lang', e.target.value); setLang(e.target.value); homeScreen(); });
   const run = (form, fn) => form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = form.querySelector('.err'); err.textContent = '';
@@ -64,7 +74,7 @@ function homeScreen() {
     try { await fn(f); } catch (x) { err.textContent = x.message; }
   });
   run($app.querySelector('#create'), async (f) => {
-    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count), exclude: store.get('urinal:seen') ?? [] } });
+    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count), lang: f.lang, exclude: store.get('urinal:seen') ?? [] } });
     store.set('urinal:' + r.code, { token: r.token });
     location.href = '/g/' + r.code;
   });
@@ -84,6 +94,8 @@ function gameScreen(code) {
   const apply = (s) => {
     const key = JSON.stringify(s);
     if (key === lastKey) return;
+    if (s.lang && s.lang !== getLang()) { setLang(s.lang); lastRestKey = ''; } // the game's language wins
+    document.title = `${t('app.short')} · ${code}`;
     if (s.scenarios) rememberSeen(s.scenarios.map((x) => x.id));
     // While playing, other people's progress must not re-render the scene
     // under the player's finger (it would swallow a tap): patch the host bar only.
@@ -118,7 +130,7 @@ function gameScreen(code) {
     try { apply(await api(`/api/games/${code}`, { token: token() })); }
     catch (e) {
       if (e.status === 404) {
-        $app.innerHTML = `<div class="card center"><h2>Game not found</h2><p class="muted">It may have expired.</p><a href="/"><button>Home</button></a></div>`;
+        $app.innerHTML = `<div class="card center"><h2>${t('game.notFound')}</h2><p class="muted">${t('game.expired')}</p><a href="/"><button>${t('game.home')}</button></a></div>`;
         return;
       }
     }
@@ -143,19 +155,19 @@ function gameScreen(code) {
     return resultsView();
   }
 
-  const header = () => `<div class="row between"><b>🚽 Urinal Test</b><span class="muted">Game <b>${code}</b> · ${esc(st.you.nickname)}</span></div>`;
+  const header = () => `<div class="row between"><b>🚽 ${t('app.short')}</b><span class="muted">${t('game.label')} <b>${code}</b> · ${esc(st.you.nickname)}</span></div>`;
   const hostBar = () => {
     if (!st.you?.isHost) return '';
-    if (st.status === 'lobby') return `<div class="hostbar row between"><span>${st.players.length} player(s) in</span><button data-act="start">Start game</button></div>`;
+    if (st.status === 'lobby') return `<div class="hostbar row between"><span>${t('host.in', { n: st.players.length })}</span><button data-act="start">${t('host.start')}</button></div>`;
     const done = st.players.filter((p) => p.answered === st.total).length;
-    return `<div class="hostbar row between"><span><b>${done}/${st.players.length}</b> finished</span><button data-act="reveal">Reveal results</button></div>`;
+    return `<div class="hostbar row between"><span>${t('host.finished', { done, n: st.players.length })}</span><button data-act="reveal">${t('host.reveal')}</button></div>`;
   };
 
   function joinView() {
-    $app.innerHTML = `<div class="hero"><div class="big">🚽</div><h1>Join game ${code}</h1>
-      <p class="muted">${st.players.length} player(s) waiting${st.status !== 'lobby' ? ' · game in progress' : ''}</p></div>
-      <form class="card" id="j"><label>Your nickname</label><input name="nickname" maxlength="20" value="${esc(store.get('urinal:name') ?? '')}" required autocomplete="off">
-      <p class="err"></p><button>Join</button></form>`;
+    $app.innerHTML = `<div class="hero"><div class="big">🚽</div><h1>${t('join.title', { code })}</h1>
+      <p class="muted">${t('join.waiting', { n: st.players.length })}${st.status !== 'lobby' ? t('join.inProgress') : ''}</p></div>
+      <form class="card" id="j"><label>${t('home.nickname')}</label><input name="nickname" maxlength="20" value="${esc(store.get('urinal:name') ?? '')}" placeholder="${t('home.placeholder')}" required autocomplete="off">
+      <p class="err"></p><button>${t('join.btn')}</button></form>`;
     $app.querySelector('#j').addEventListener('submit', async (e) => {
       e.preventDefault();
       const nickname = new FormData(e.target).get('nickname');
@@ -170,12 +182,12 @@ function gameScreen(code) {
 
   function lobbyView() {
     $app.innerHTML = `${header()}
-      <div class="card center"><h2>Invite your friends</h2>
+      <div class="card center"><h2>${t('lobby.invite')}</h2>
         <div class="code">${code}</div>
         <p class="muted small" style="word-break:break-all">${esc(link())}</p>
-        <div class="row" style="justify-content:center"><button data-act="copy">Copy link</button>${navigator.share ? '<button class="secondary" data-act="share">Share…</button>' : ''}</div></div>
-      <div class="card"><h3>Players (${st.players.length})</h3>${st.players.map((p) => `<span class="chip${p.isHost ? ' host' : ''}${p.id === st.you.id ? ' me' : ''}">${esc(p.nickname)}</span>`).join('')}</div>
-      ${st.you.isHost ? '' : '<p class="muted center">Waiting for the organizer to start…</p>'}${hostBar()}`;
+        <div class="row" style="justify-content:center"><button data-act="copy">${t('lobby.copy')}</button>${navigator.share ? `<button class="secondary" data-act="share">${t('lobby.share')}</button>` : ''}</div></div>
+      <div class="card"><h3>${t('lobby.players', { n: st.players.length })}</h3>${st.players.map((p) => `<span class="chip${p.isHost ? ' host' : ''}${p.id === st.you.id ? ' me' : ''}">${esc(p.nickname)}</span>`).join('')}</div>
+      ${st.you.isHost ? '' : `<p class="muted center">${t('lobby.waiting')}</p>`}${hostBar()}`;
   }
 
   function playView() {
@@ -186,72 +198,93 @@ function gameScreen(code) {
     const answered = Object.keys(st.myAnswers).length;
     $app.innerHTML = `${header()}
       <div class="card">
-        <div class="row between"><h2>${idx + 1}. ${esc(sc.title)}</h2><span class="muted">${answered}/${st.total} answered</span></div>
+        <div class="row between"><h2>${idx + 1}. ${esc(sc.title)}</h2><span class="muted">${t('play.answered', { n: answered, total: st.total })}</span></div>
         <div class="progress"><i style="width:${(100 * answered) / st.total}%"></i></div>
         ${context(sc)}
-        <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? 'You came in from the left. <b>Tap where you would pee.</b>' : 'Answer locked ✓'}</p>
-        ${renderScene(sc, { mine, pickable: mine === undefined })}
+        <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? t('play.hint') : t('play.locked')}</p>
+        ${renderScene(sc, { mine, mineLabel: t('who.you'), pickable: mine === undefined })}
         <div class="dots">${st.scenarios.map((s, i) => `<button data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''} ${i === idx ? 'cur' : ''}">${i + 1}</button>`).join('')}</div>
-        <div class="nav"><button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>← Back</button>
-          <button class="secondary" data-go="${idx + 1}" ${idx === st.total - 1 ? 'disabled' : ''}>Next →</button></div>
+        <div class="nav"><button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>${t('play.back')}</button>
+          <button class="secondary" data-go="${idx + 1}" ${idx === st.total - 1 ? 'disabled' : ''}>${t('play.next')}</button></div>
       </div>${hostBar()}`;
   }
 
   function waitingView() {
     $app.innerHTML = `${header()}
-      <div class="card center"><div class="hero" style="padding:8px"><div class="big">✅</div><h2>All done!</h2>
-        <p class="muted">${st.you.isHost ? 'Reveal the results when everybody is ready.' : 'Waiting for the organizer to reveal the results…'}</p></div></div>
-      <div class="card"><h3>Who has finished</h3><table class="board">${st.players.map((p) => `<tr><td>${esc(p.nickname)}${p.isHost ? ' 👑' : ''}</td><td>${p.answered}/${st.total}${p.answered === st.total ? ' ✅' : ''}</td></tr>`).join('')}</table>
-      <p><button class="secondary" data-go="0">Review my answers</button></p></div>${hostBar()}`;
+      <div class="card center"><div class="hero" style="padding:8px"><div class="big">✅</div><h2>${t('wait.title')}</h2>
+        <p class="muted">${st.you.isHost ? t('wait.host') : t('wait.player')}</p></div></div>
+      <div class="card"><h3>${t('wait.who')}</h3><table class="board">${st.players.map((p) => `<tr><td>${esc(p.nickname)}${p.isHost ? ' 👑' : ''}</td><td>${p.answered}/${st.total}${p.answered === st.total ? ' ✅' : ''}</td></tr>`).join('')}</table>
+      <p><button class="secondary" data-go="0">${t('wait.review')}</button></p></div>${hostBar()}`;
   }
 
   function resultsView() {
     const name = Object.fromEntries(st.players.map((p) => [p.id, p.nickname]));
     if (!(viewing in name)) viewing = st.you.id;
     const isMe = viewing === st.you.id;
-    const who = isMe ? 'You' : esc(name[viewing]);
+    const who = isMe ? t('res.you') : esc(name[viewing]);
     const ranked = [...st.players].sort((a, b) => st.scores[b.id] - st.scores[a.id] || a.nickname.localeCompare(b.nickname));
     const medal = (p) => { const better = ranked.filter((q) => st.scores[q.id] > st.scores[p.id]).length; return ['🥇', '🥈', '🥉'][better] ?? `${better + 1}.`; };
-    const pickOf = (r) => { for (const [k, ids] of Object.entries(r.votes)) if (ids.includes(viewing)) return Number(k); return undefined; };
+    const pickOf = (r, pid) => { for (const [k, ids] of Object.entries(r.votes)) if (ids.includes(pid)) return Number(k); return undefined; };
+    const scOf = (r) => st.scenarios.find((s) => s.id === r.scenarioId);
 
+    // awards: best score, and the one who stood right next to people the most
+    const flashes = Object.fromEntries(st.players.map((p) => [p.id, st.results.filter((r) => awkward(scOf(r), pickOf(r, p.id), r.correct)).length]));
+    const topScore = st.scores[ranked[0]?.id] ?? 0;
+    const masters = ranked.filter((p) => topScore > 0 && st.scores[p.id] === topScore);
+    const maxFlash = Math.max(0, ...Object.values(flashes));
+    const flashers = st.players.filter((p) => maxFlash > 0 && flashes[p.id] === maxFlash);
+    const names = (ps) => ps.map((p) => `<b>${esc(p.nickname)}</b>`).join(', ');
+    const awards = `<div class="card awards"><h3>${t('res.awards')}</h3>
+      ${masters.length ? `<div>${t('award.master')}: ${names(masters)}</div>` : ''}
+      <div>${flashers.length ? `${t('award.flasher')}: ${names(flashers)} <span class="muted small">(${t('award.flasherN', { n: maxFlash })})</span>` : t('award.none')}</div></div>`;
+
+    // jokes rotate per viewed player, so a page never repeats one before the list runs out
+    const used = {}, base = Math.abs(hash(viewing));
+    const nextJoke = (kind, vars) => pick(kind, base + (used[kind] = (used[kind] ?? -1) + 1), vars);
     const cards = st.results.map((r, i) => {
-      const sc = st.scenarios.find((s) => s.id === r.scenarioId);
+      const sc = scOf(r);
       const counts = Object.fromEntries(Object.entries(r.votes).map(([k, v]) => [k, v.length]));
       const voters = Object.values(counts).reduce((a, b) => a + b, 0);
       const top = Math.max(0, ...Object.values(counts));
-      const pick = pickOf(r);
+      const p = pickOf(r, viewing);
       const label = (k) => spotLabel(sc, k);
       const popular = Object.keys(counts).filter((k) => counts[k] === top && top > 0).map(label).join(' / ') || '—';
-      const verdict = pick === undefined ? `<span class="muted">${isMe ? 'You did' : who + ' did'} not answer</span>`
-        : r.correct.includes(pick) ? `<span class="ok">${who} got it ✓</span>` : `<span class="bad">${who}: wrong ✗</span>`;
+      const good = p !== undefined && r.correct.includes(p);
+      const verdict = p === undefined ? `<span class="muted">${t('res.noAnswer', { who })}</span>`
+        : good ? `<span class="ok">${t('res.gotIt', { who })}</span>` : `<span class="bad">${t('res.wrong', { who })}</span>`;
+      const aw = awkward(sc, p, r.correct);
+      const joke = aw ? `<p class="joke ${aw.kind}">${aw.kind === 'kid' ? '🙅' : '😳'} ${nextJoke(aw.kind, { who: esc(name[viewing]) })}</p>`
+        : good ? `<p class="praise">${nextJoke('praise')}</p>` : '';
       const whoPicked = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>${r.correct.includes(Number(k)) ? ' ✅' : ''}: ${ids
         .map((id) => `<button class="name${id === viewing ? ' sel' : ''}" data-view="${id}">${esc(name[id])}</button>`).join(' ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
         ${context(sc)}
-        ${renderScene(sc, { mine: pick, mineLabel: isMe ? 'you' : name[viewing], correct: r.correct, votes: counts, total: voters })}
-        <div class="facts"><div>✅ <b>Correct:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>Most picked:</b> ${popular}</div></div>
+        ${renderScene(sc, { mine: p, mineLabel: isMe ? t('who.you') : name[viewing], correct: r.correct, votes: counts, total: voters, peek: aw?.kind === 'kid' ? [] : aw?.near })}
+        ${joke}
+        <div class="facts"><div>✅ <b>${t('res.correct')}:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>${t('res.popular')}:</b> ${popular}</div></div>
         <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${whoPicked}</div>`;
     }).join('');
 
     $app.innerHTML = `${header()}
-      <div class="card"><h2>🏆 Results</h2><p class="muted small" style="margin:0 0 .4em">Tap a player to see their answers.</p>
-        <table class="board">${ranked.map((p) => `<tr class="pick${p.id === viewing ? ' sel' : ''}" data-view="${p.id}"><td>${medal(p)} ${esc(p.nickname)}${p.id === st.you.id ? ' (you)' : ''}</td><td>${st.scores[p.id]}/${st.total}</td></tr>`).join('')}</table></div>
-      <div class="viewing"><span class="muted small">Showing answers of</span>${ranked.map((p) => `<button class="name${p.id === viewing ? ' sel' : ''}" data-view="${p.id}">${p.id === st.you.id ? 'You' : esc(p.nickname)}</button>`).join('')}</div>
-      ${st.you.isHost ? '' : '<p class="muted center">If the organizer starts another round, you will be moved there automatically.</p>'}
-      ${cards}<p class="center"><a href="/"><button class="secondary">New game</button></a></p>
-      ${st.you.isHost ? `<div class="hostbar row between"><span>Play again, same group:</span><select id="againCount">${countOptions(COUNTS.includes(st.total) ? st.total : 10)}</select><button data-act="again">Play again</button></div>` : ''}`;
+      <div class="card"><h2>${t('res.title')}</h2><p class="muted small" style="margin:0 0 .4em">${t('res.tapHint')}</p>
+        <table class="board">${ranked.map((p) => `<tr class="pick${p.id === viewing ? ' sel' : ''}" data-view="${p.id}"><td>${medal(p)} ${esc(p.nickname)}${p.id === st.you.id ? t('res.youSuffix') : ''}</td><td>${st.scores[p.id]}/${st.total}</td></tr>`).join('')}</table></div>
+      ${awards}
+      <div class="viewing"><span class="muted small">${t('res.showing')}</span>${ranked.map((p) => `<button class="name${p.id === viewing ? ' sel' : ''}" data-view="${p.id}">${p.id === st.you.id ? t('res.you') : esc(p.nickname)}</button>`).join('')}</div>
+      ${st.you.isHost ? '' : `<p class="muted center">${t('res.follow')}</p>`}
+      ${cards}<p class="center"><a href="/"><button class="secondary">${t('res.newGame')}</button></a></p>
+      ${st.you.isHost ? `<div class="hostbar row between"><span>${t('res.again')}</span><select id="againCount">${countOptions(COUNTS.includes(st.total) ? st.total : 10)}</select><button data-act="again">${t('res.againBtn')}</button></div>` : ''}`;
   }
 
   // one delegated click handler for every screen
   $app.addEventListener('click', async (e) => {
-    const t = e.target;
-    const view = t.closest('[data-view]');
+    const el = e.target;
+    const view = el.closest('[data-view]');
     if (view) { viewing = Number(view.dataset.view); return render(); }
-    const go = t.closest('[data-go]');
+    const go = el.closest('[data-go]');
     if (go && !go.disabled) { idx = Number(go.dataset.go); return render(); }
-    const a = t.closest('[data-act]')?.dataset.act;
-    if (a === 'copy') { try { await navigator.clipboard.writeText(link()); toast('Link copied!'); } catch { prompt('Copy this link:', link()); } }
-    else if (a === 'share') navigator.share({ title: 'Urinal Test', text: 'Play the urinal test with us!', url: link() }).catch(() => {});
+    const a = el.closest('[data-act]')?.dataset.act;
+    if (a === 'copy') { try { await navigator.clipboard.writeText(link()); toast(t('lobby.copied')); } catch { prompt(t('lobby.copyPrompt'), link()); } }
+    else if (a === 'share') navigator.share({ title: t('app.name'), text: t('lobby.shareText'), url: link() }).catch(() => {});
     else if (a === 'start') act('start');
     else if (a === 'again') {
       try {
@@ -263,9 +296,9 @@ function gameScreen(code) {
     }
     else if (a === 'reveal') {
       const pending = st.players.filter((p) => p.answered < st.total).length;
-      if (!pending || confirm(`${pending} player(s) have not finished. Reveal anyway?`)) act('reveal');
+      if (!pending || confirm(t('host.confirmPending', { n: pending }))) act('reveal');
     }
-    const spot = t.closest('[data-spot]');
+    const spot = el.closest('[data-spot]');
     if (spot && spot.dataset.spot !== '' && !busy && st?.status === 'playing') {
       busy = true;
       const sc = st.scenarios[idx];

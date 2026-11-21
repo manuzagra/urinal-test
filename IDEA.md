@@ -95,5 +95,12 @@ safe areas). Results have a player picker: tap anybody to see their pick drawn o
 scene and whether they got it right. The organizer picks 3–30 situations for every round,
 including *Play again*.
 
+v0.4: Spanish (Spain) by default, English optional: the organizer picks the game's
+language and everyone in that game sees it (UI, situations, errors). Results got fun:
+cheeky jokes when a pick is wrong *and* right next to a guy ("¡te he visto el pito!",
+size jokes, a special one for sandwiches; next to a kid only a telling-off, never a dick
+joke), praise for good picks, 👀 on the neighbour in the drawing, and awards (urinal
+master, flasher of the day).
+
 Next ideas: timer per scenario, SSE instead of polling, scenario
 editor, i18n (ES/EN).
