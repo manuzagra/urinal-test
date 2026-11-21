@@ -56,8 +56,8 @@ adjacent, etc.) written by us per scenario. Start with ~10–15 scenarios.
   One host, a few dozen players: no Postgres/Redis needed.
 - **Live updates by polling** (every ~2s) of a `GET /api/games/:code` state
   endpoint. Simple and robust behind Coolify/Traefik; upgrade to SSE later if wanted.
-- No user accounts. The host is whoever holds the `hostToken` returned at
-  creation (stored in `localStorage` + cookie signed with `ORGANIZER_SECRET`).
+- No user accounts. Identity is a random token per player in `localStorage` (sent as
+  `x-token`); the organizer is the player who created the game.
 
 ## 5. Data model
 - `games(code PK, host_token, status[lobby|playing|revealed|closed], scenario_ids json, created_at)`

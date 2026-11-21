@@ -1,0 +1,53 @@
+# Development notes (read this first in a new session)
+
+## Where things run — two different servers
+- **Dev VPS** (where the devcontainer runs, reached over SSH from VS Code) is **not**
+  the production server. Production is another VPS running **Coolify behind a VPN**.
+- So from the dev environment you can **not** reach production, the Coolify UI, or its
+  Traefik/`coolify` docker network. Do not assume they exist here (nothing in the dev
+  setup depends on them). Verify the production image locally with `make prod-local`
+  (→ port 3001) and leave the actual deploy to the user in the Coolify UI.
+- A server on the dev VPS is **not** `localhost` on the user's laptop. Open it through
+  VS Code's **Ports** tab (forward 3000), or `ssh -L 3000:localhost:3000 ubuntu@<dev-vps>`.
+  Friends cannot reach the dev VPS; real multiplayer testing happens after a deploy.
+
+## Daily workflow
+- In the devcontainer: `make dev` (auto-reload, :3000) and `make test`.
+- Git: develop only on `develop`-based branches (`feature/…`, `fix/…`, `docs/…`), merge
+  back into `develop` with `--no-ff` (PRs later). `main` = releases only, merged from
+  `develop` when the user says so. Small, meaningful commits; commit message ends with
+  the `Co-Authored-By` line from the session reminder. Never commit `.env`.
+- Don't push, merge to `main`, or deploy without being asked.
+
+## Architecture in 30 seconds (full spec: IDEA.md)
+- `app/server.mjs` boots `app/src/app.mjs` (HTTP + JSON API + static files) on
+  `node:sqlite` (`app/src/db.mjs`). **Zero npm dependencies; needs Node ≥ 22.13.**
+- `app/src/scenarios.mjs`: the situations as data + `correctSpots()` (farthest from the
+  nearest guy; a free stall wins only if the best urinal is adjacent to someone; per
+  scenario `correct` overrides). Add scenarios here.
+- `app/public/scene.js`: draws a scenario as SVG (urinals, stall, broken sign, guys with
+  poses `standing|phone|leaning|wide|hips|kid`). `app/public/app.js`: screens
+  (home, join, lobby, play, waiting, results), polling every 1.5 s.
+- Auth: random token per player, header `x-token`; the organizer is the creating player.
+  Answers are first-write-wins. The API must never expose `correct`/explanations or other
+  players' picks before status is `revealed` (covered by `app/test/app.test.mjs`).
+
+## Gotchas
+- **docker-outside-of-docker**: inside the devcontainer, `docker run -v $PWD/…` mounts a
+  path on the *host*, where the repo lives at e.g. `/home/ubuntu/workspace/urinal-test`,
+  not `/workspace/app`. Avoid bind mounts from in here (`make prod-local` uses none).
+- While players are answering, polling must not re-render the scene (it swallowed taps).
+  `app.js` only patches the host bar in that state; keep it that way.
+- `node:sqlite` is experimental: the scripts pass `--disable-warning=ExperimentalWarning`.
+- DB lives in `DATA_DIR` (`app/data` in dev, gitignored; `/data` volume in prod). Games
+  older than 48 h are purged when a new game is created.
+- Real-browser check used so far: Playwright (`mcr.microsoft.com/playwright:v1.49.0-jammy`
+  with `npm i playwright@1.49.0`), driving 3 browser contexts through the whole flow.
+  Inside the devcontainer the app is not `localhost` for that container: run it with
+  `--network container:<devcontainer-name>`.
+
+## Status & ideas
+v0 is done and works (see IDEA.md §8). Likely next steps, in the user's priority order:
+iterate on gameplay/visuals with the user → first release (`develop` → `main`) → Coolify
+deploy (README) → more scenarios (dividers, sinks, more poses), bigger scene on phones
+(6–7 urinals are small), timer per scenario, SSE instead of polling, ES/EN.
