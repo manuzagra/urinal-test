@@ -5,7 +5,7 @@
 //   options.votes    { spot: count }  vote bars (results)
 //   options.total    number of voters (for percentages)
 //   options.pickable true => free spots are clickable (data-spot)
-//   options.peek     [spot indexes] of guys who get a 👀 bubble (they saw too much)
+//   options.speech   [{ at: spotIndex, text }] comic speech bubbles (results jokes), 1 or 2, left to right
 // Spot kinds: urinal | low (kid height) | dirty | stall | broken | sink (decoration)
 // occupied[i]: a pose string, or { pose, tag, say } (tag = name label, say = speech bubble)
 // dividers: [i, ...] = a privacy panel between spot i and i+1
@@ -109,6 +109,43 @@ function bubble(x, text, k, { flip, kid, W }) {
     <text x="${bx + w / 2}" y="${y + h * 0.68}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${INK}" ${FONT}>${esc(text)}</text></g>`;
 }
 
+// Comic speech bubbles: wrapped text above the wall, tail down to the speaker's head.
+const COMIC_FONT = `font-family="'Comic Sans MS','Chalkboard SE','Comic Neue',system-ui,sans-serif"`;
+function wrap(text, maxChars) {
+  const lines = [];
+  for (const word of String(text).split(/\s+/)) {
+    const last = lines.at(-1);
+    if (last !== undefined && [...(last + ' ' + word)].length <= maxChars) lines[lines.length - 1] = last + ' ' + word;
+    else lines.push(word);
+  }
+  return lines;
+}
+function comics(speech, s, k, W, bottom) {
+  const fs = 12.5 * k, charW = fs * 0.56, pad = fs * 0.8, two = speech.length > 1;
+  const pose = (i) => { const o = s.occupied[i]; return typeof o === 'object' && o ? o.pose : o; };
+  const boxes = speech.map(({ at, text }, j) => {
+    const maxW = two ? W / 2 - 10 : Math.min(W - 12, Math.max(SPOT_W * 3.2, W * 0.62));
+    const lines = wrap(text, Math.max(8, Math.floor((maxW - 2 * pad) / charW)));
+    const w = Math.max(...lines.map((l) => [...l].length)) * charW + 2 * pad, h = lines.length * fs * 1.25 + pad * 1.3;
+    const x = cx(at), lo = two && j === 1 ? W / 2 + 4 : 6, hi = two && j === 0 ? W / 2 - 4 - w : W - 6 - w;
+    const bx = Math.max(lo, Math.min(hi, x - w / 2));
+    const headTop = pose(at) === 'kid' ? FLOOR - 174 * 0.72 - 22 : 74;
+    return { x, lines, w, h, bx, headTop };
+  });
+  const top = Math.max(...boxes.map((b) => b.h));
+  let svg = '';
+  for (const b of boxes) {
+    const by = bottom - b.h, tx = Math.max(b.bx + 18, Math.min(b.bx + b.w - 18, b.x)), tw = 7 * k;
+    svg += `<g class="comic">
+      <path d="M${tx - tw} ${by + b.h - 3} L${b.x} ${b.headTop} L${tx + tw} ${by + b.h - 3}Z" fill="#fff" stroke="${INK}" stroke-width="${1.2 * k}" stroke-linejoin="round"/>
+      <rect x="${b.bx}" y="${by}" width="${b.w}" height="${b.h}" rx="${fs * 0.9}" fill="#fff" stroke="${INK}" stroke-width="${1.4 * k}"/>
+      <rect x="${tx - tw + 1.2 * k}" y="${by + b.h - 3 * k}" width="${2 * tw - 2.4 * k}" height="${3.2 * k}" fill="#fff"/>
+      ${b.lines.map((l, i) => `<text x="${b.bx + b.w / 2}" y="${by + pad * 0.65 + fs * (i + 0.95) * 1.25 - fs * 0.25}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${INK}" ${COMIC_FONT}>${esc(l)}</text>`).join('')}
+    </g>`;
+  }
+  return { svg, height: top };
+}
+
 function guy(x, pose, seed, { ghost = false } = {}) {
   const pick = (a, k = 0) => a[(seed * 7 + k * 3) % a.length];
   const shirt = ghost ? '#1e90ff' : pick(SHIRTS), pants = ghost ? '#16457a' : pick(PANTS, 1);
@@ -192,21 +229,28 @@ export function renderScene(s, o = {}) {
   });
 
   for (const d of s.dividers ?? []) parts += divider(LEFT + (d + 1) * SPOT_W);
+  // results jokes: the neighbours talk in comic bubbles above the wall (the scene grows taller)
+  let top = TOP;
+  const speakers = (o.speech ?? []).map((sp) => sp.at);
+  if (o.speech?.length) {
+    const c = comics(o.speech, s, k, W, -TOP - 4);
+    parts += c.svg;
+    top = TOP + 4 + c.height + 8;
+  }
   s.spots.forEach((kind, i) => {
     const raw = s.occupied[i];
     if (!raw || kind === 'stall') return;
     const p = typeof raw === 'object' ? raw : { pose: raw };
-    const say = o.peek?.includes(i) ? '👀' : p.say; // a neighbour who saw too much
     if (p.tag) parts += tag(cx(i), p.tag, k);
-    if (say) parts += bubble(cx(i), say, k, { flip: o.mine !== undefined ? o.mine < i : i >= n / 2, kid: p.pose === 'kid', W });
+    if (p.say && !speakers.includes(i)) parts += bubble(cx(i), p.say, k, { flip: i >= n / 2, kid: p.pose === 'kid', W });
   });
 
-  return `<svg class="scene" viewBox="0 ${-TOP} ${W} ${TOP + BOTTOM}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
+  return `<svg class="scene" viewBox="0 ${-top} ${W} ${top + BOTTOM}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
     <defs>
       <pattern id="tiles" width="46" height="46" patternUnits="userSpaceOnUse"><rect width="46" height="46" fill="#dbe7ee"/><path d="M0 0H46V46" fill="none" stroke="#bccbd6" stroke-width="2"/></pattern>
       <pattern id="floor" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#7e8c96"/><rect width="20" height="20" fill="#8e9ba5"/><rect x="20" y="20" width="20" height="20" fill="#8e9ba5"/></pattern>
     </defs>
-    <rect y="${-TOP}" width="${W}" height="${FLOOR + TOP}" fill="url(#tiles)"/>
+    <rect y="${-top}" width="${W}" height="${FLOOR + top}" fill="url(#tiles)"/>
     <rect y="${FLOOR - 4}" width="${W}" height="8" fill="#5f6d77"/>
     <rect y="${FLOOR + 4}" width="${W}" height="${BOTTOM - FLOOR - 4}" fill="url(#floor)"/>
     <rect y="${FLOOR - 70}" width="${W}" height="3" fill="#b2c2ce"/>

@@ -253,13 +253,20 @@ function gameScreen(code) {
       const verdict = p === undefined ? `<span class="muted">${t('res.noAnswer', { who })}</span>`
         : good ? `<span class="ok">${t('res.gotIt', { who })}</span>` : `<span class="bad">${t('res.wrong', { who })}</span>`;
       const aw = awkward(sc, p, r.correct);
-      const joke = aw ? `<p class="joke ${aw.kind}">${aw.kind === 'kid' ? '🙅' : '😳'} ${nextJoke(aw.kind, { who: esc(name[viewing]) })}</p>`
-        : good ? `<p class="praise">${nextJoke('praise')}</p>` : '';
+      // very wrong: the neighbours roast you in comic bubbles (the kid only tells you off)
+      let speech = [];
+      if (aw) {
+        const line = nextJoke(aw.kind, { who: name[viewing] });
+        const kidAt = aw.near.find((j) => (sc.occupied[j]?.pose ?? sc.occupied[j]) === 'kid');
+        speech = aw.kind === 'sandwich' ? aw.near.map((at, j) => ({ at, text: line[j] }))
+          : [{ at: aw.kind === 'kid' ? kidAt : aw.near[0], text: line }];
+      }
+      const joke = good ? `<p class="praise">${nextJoke('praise')}</p>` : '';
       const whoPicked = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>${r.correct.includes(Number(k)) ? ' ✅' : ''}: ${ids
         .map((id) => `<button class="name${id === viewing ? ' sel' : ''}" data-view="${id}">${esc(name[id])}</button>`).join(' ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
         ${context(sc)}
-        ${renderScene(sc, { mine: p, mineLabel: isMe ? t('who.you') : name[viewing], correct: r.correct, votes: counts, total: voters, peek: aw?.kind === 'kid' ? [] : aw?.near })}
+        ${renderScene(sc, { mine: p, mineLabel: isMe ? t('who.you') : name[viewing], correct: r.correct, votes: counts, total: voters, speech })}
         ${joke}
         <div class="facts"><div>✅ <b>${t('res.correct')}:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>${t('res.popular')}:</b> ${popular}</div></div>
         <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${whoPicked}</div>`;

@@ -73,55 +73,57 @@ const EN = {
   'err.reveal_first': 'Reveal the results first', 'err.generic': 'Something went wrong',
 };
 
-// Jokes for results. Cartoon guys only, it's a party game. {who} = player name.
-// "roast": wrong pick right next to a guy. "sandwich": between two guys.
-// "kid": next to a kid -> never a dick joke, just a telling-off.
+// Jokes for results, said by the cartoon guys in comic speech bubbles (it's a party game,
+// nobody is real). {who} = the player's nickname.
+// roast:    one neighbour speaks (wrong pick right next to him)
+// sandwich: [left guy, right guy] (you are between two)
+// kid:      the kid speaks -> never a dick joke, just a telling-off
 const JOKES = {
   es: {
     roast: [
-      '¡{who}, te he visto el pito! Tranquilo, ha hecho falta lupa. 🔍',
-      'El de al lado ha mirado de reojo… y ha tenido que ponerse las gafas. 👓',
-      'Era un urinario, no un concurso de medidas. Y lo has perdido. 🤏',
-      'Desde ahí se te ve todo. Bueno, «todo»… 🤏',
-      'Tu vecino ya sabe tu talla. Y se sigue riendo.',
-      'Te has puesto al lado. Él lo ha visto. Lo sabe. Tú sabes que lo sabe. 👀',
-      '{who}, tan cerca que podía contarte los pelos. Y no había muchos más que contar.',
-      'Tu vecino ha visto tu cacahuete y ahora tiene hambre. 🥜',
-      'Pegadito, pegadito… ¿buscabas compañía o comparación? (Spoiler: has perdido.)',
-      '¡Alerta de mirón! Y lo que ha visto no da ni para una foto. 📸',
+      '¡{who}, te he visto el pito! Tranquilo, me ha hecho falta lupa. 🔍',
+      'Espera, que me pongo las gafas… Nada, sigo sin verla. 👓',
+      'Esto es un urinario, no un concurso de medidas. Y has perdido. 🤏',
+      'Desde aquí se te ve todo. Bueno, «todo»… 🤏',
+      'Ya sé tu talla, {who}. No se lo diré a nadie. (Se lo diré a todos.)',
+      'Te he visto. Lo sé. Y tú sabes que lo sé. 👀',
+      '¿Con tanto sitio libre te pones aquí? ¿Buscas compañía o comparación?',
+      'Uy, un cacahuete. Ahora me ha entrado hambre. 🥜',
+      '¿Te hago una foto? Mejor no, que no saldría nada. 📸',
+      'Qué mona. ¿Le has puesto nombre? 🐣',
     ],
     sandwich: [
-      '¡Bocadillo! Dos tíos te han visto el pito a la vez. Uno ha dicho «ah». El otro, «¿dónde?». 🥪',
-      '{who} entre dos y aun así no se ve nada. Impresionante. 🔬',
-      'Te han rodeado por los dos lados. Ahora hay dos testigos de tu miniatura. 🤏🤏',
+      ['¡Le he visto el pito!', '¿Dónde? Yo no veo nada. 🔍'],
+      ['Oye, ¿tú ves algo?', 'Ni con lupa. 🔬'],
+      ['Bocadillo de {who}…', '…de los pequeños. 🥪🤏'],
     ],
     kid: [
-      '¡{who}, que hay un niño! Distancia, por favor. 🙅',
-      'Al lado de un crío… su padre te está mirando fatal. 😠',
+      '¡Eh! ¡Que soy un niño! Ponte más lejos. 😠',
+      '¡Papááá, este señor se ha puesto muy cerca! 😤',
     ],
     praise: ['Elegancia urinaria nivel experto. 🎩', 'De manual. Tu próstata y tu dignidad, intactas. 👌', 'Así se mea, señores. 🏅', 'Distancia perfecta. Nadie ha visto nada. 😎'],
   },
   en: {
     roast: [
-      '{who}, I can see your dick! Don\'t worry, it took a magnifying glass. 🔍',
-      'Your neighbour took a peek… and reached for his glasses. 👓',
-      'That was a urinal, not a measuring contest. And you lost. 🤏',
-      'From there everything is visible. Well, "everything"… 🤏',
-      'The guy next to you now knows your size. He\'s still laughing.',
-      'You went right next to him. He saw. He knows. You know he knows. 👀',
-      '{who}, so close he could have counted the hairs. Not much else to count.',
-      'Your neighbour saw your peanut and now he\'s hungry. 🥜',
-      'Snuggled right up… were you after company or a comparison? (Spoiler: you lost.)',
-      'Peeping alert! And what he saw wasn\'t even worth a photo. 📸',
+      '{who}, I can see your dick! Don\'t worry, I needed a magnifying glass. 🔍',
+      'Hang on, let me get my glasses… Nope, still can\'t see it. 👓',
+      'This is a urinal, not a measuring contest. And you lost. 🤏',
+      'From here I can see everything. Well, "everything"… 🤏',
+      'I know your size now, {who}. I won\'t tell anyone. (I\'ll tell everyone.)',
+      'I saw. I know. And you know I know. 👀',
+      'All that free space and you stand here? Company or comparison?',
+      'Oh, a peanut. Now I\'m hungry. 🥜',
+      'Want me to take a photo? Better not, nothing would show. 📸',
+      'Aww, cute. Did you give it a name? 🐣',
     ],
     sandwich: [
-      'Sandwich! Two guys saw your dick at once. One said "oh". The other said "where?". 🥪',
-      '{who} with two guys looking and still nothing to see. Impressive. 🔬',
-      'Surrounded on both sides. Now there are two witnesses to your miniature. 🤏🤏',
+      ['I saw his dick!', 'Where? I can\'t see anything. 🔍'],
+      ['Hey, can you see anything?', 'Not even with a magnifier. 🔬'],
+      ['A {who} sandwich…', '…a small one. 🥪🤏'],
     ],
     kid: [
-      '{who}, there\'s a kid there! Distance, please. 🙅',
-      'Right next to a child… his dad is giving you the stink eye. 😠',
+      'Hey! I\'m a kid! Go further away. 😠',
+      'Daaad, this man is standing too close! 😤',
     ],
     praise: ['Expert-level urinal elegance. 🎩', 'Textbook. Bladder and dignity intact. 👌', 'That, gentlemen, is how you pee. 🏅', 'Perfect distance. Nobody saw a thing. 😎'],
   },
@@ -132,4 +134,9 @@ export const setLang = (l) => { lang = l in LANGS ? l : 'es'; document.documentE
 export const getLang = () => lang;
 const fill = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
 export const t = (key, vars = {}) => fill((lang === 'en' ? EN : ES)[key] ?? EN[key] ?? key, vars);
-export const pick = (kind, seed, vars = {}) => { const a = JOKES[lang][kind]; return fill(a[Math.abs(seed) % a.length], vars); };
+// A joke of that kind: a string, or [left, right] for a sandwich.
+export const pick = (kind, seed, vars = {}) => {
+  const a = JOKES[lang][kind], j = a[Math.abs(seed) % a.length];
+  return Array.isArray(j) ? j.map((x) => fill(x, vars)) : fill(j, vars);
+};
+export const JOKE_LISTS = JOKES; // for tests
