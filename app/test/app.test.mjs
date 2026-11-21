@@ -4,7 +4,8 @@ import { openDb } from '../src/db.mjs';
 import { createApp, pickScenarios } from '../src/app.mjs';
 import { SCENARIOS, correctSpots, isPickable, localize } from '../src/scenarios.mjs';
 import { ES } from '../src/scenarios.es.mjs';
-import { awkward } from '../public/scene.js';
+import { awkward, renderScene } from '../public/scene.js';
+import { JOKE_LISTS } from '../public/i18n.js';
 
 test('every scenario has a valid, pickable, non-empty correct answer', () => {
   for (const s of SCENARIOS) {
@@ -171,4 +172,22 @@ test('language: Spanish by default, English on request, kept by play again; erro
     const dup = await call(`/api/games/${es.code}/join`, { method: 'POST', body: { nickname: 'a' } });
     assert.equal(dup.json.code, 'nickname_taken');
   } finally { server.close(); }
+});
+
+test('jokes: same shape in every language, sandwiches are dialogues, kids never get dick jokes', () => {
+  for (const [lang, j] of Object.entries(JOKE_LISTS)) {
+    assert.ok(j.roast.length >= 5 && j.praise.length && j.kid.length, lang);
+    for (const d of j.sandwich) assert.ok(Array.isArray(d) && d.length === 2, `${lang}: sandwich must be [left, right]`);
+    for (const line of j.kid) assert.doesNotMatch(line, /pito|polla|cacahuete|talla|dick|peanut|size/i, `${lang}: ${line}`);
+  }
+});
+
+test('scene: comic bubbles make the scene taller and keep the text escaped', () => {
+  const sc = { title: 't', spots: ['urinal', 'urinal', 'urinal'], occupied: { 0: 'standing', 2: 'phone' } };
+  const plain = renderScene(sc, { mine: 1 });
+  const comic = renderScene(sc, { mine: 1, speech: [{ at: 0, text: 'Hola <b>' }, { at: 2, text: '¿Dónde? 🔍' }] });
+  const h = (svg) => Number(svg.match(/viewBox="0 [-\d.]+ [\d.]+ ([\d.]+)"/)[1]);
+  assert.ok(h(comic) > h(plain));
+  assert.equal((comic.match(/class="comic"/g) ?? []).length, 2);
+  assert.ok(comic.includes('Hola &lt;b&gt;') && !comic.includes('<b>'));
 });
