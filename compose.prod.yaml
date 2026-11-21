@@ -1,0 +1,28 @@
+# Production: Coolify "Docker Compose" resource pointed at this file (README).
+# Coolify builds the image from the Dockerfile (runtime stage) and routes the
+# public hostname to port 3000 through its Traefik — set the domain on the
+# `web` service in the Coolify UI. Nothing publishes a host port.
+name: urinal-test-prod
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL is required (public URL)}
+    volumes:
+      - appdata:/data        # SQLite database lives here
+    expose:
+      - "3000"
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  appdata:
