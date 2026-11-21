@@ -9,6 +9,7 @@
 // dividers  : [i, ...] privacy panel between spot i and i+1 (counts as one extra spot of distance)
 // context   : optional line shown to players ("It's half-time at the stadium")
 // correct   : optional override (spot indexes). Otherwise computed by correctSpots().
+// level     : easy | medium | hard (set from LEVEL_IDS below)
 // explanation: shown after the reveal. Spot numbers in text are 1-based, like on screen.
 // The room is always entered from the left (the door is drawn on the left).
 
@@ -544,7 +545,160 @@ export const SCENARIOS = [
     occupied: { 0: { pose: 'standing', say: 'And then...' }, 2: { pose: 'standing', say: 'No way!' } },
     explanation: 'Urinal 2 would put you in the middle of their conversation. Urinal 5 is two spots away.',
   },
+
+  // ---- added with difficulty levels (mostly traps) --------------------------
+  {
+    id: 'counting-trap',
+    title: 'Tempting ends',
+    spots: row(7),
+    occupied: { 1: 'standing', 5: 'phone' },
+    explanation: 'Both ends are right next to someone. Urinal 4 is two spots from both guys.',
+  },
+  {
+    id: 'broken-no-help',
+    title: 'The broken one won\'t save you',
+    spots: [U, U, BROKEN, U, U, U, STALL],
+    occupied: { 0: 'standing', 4: 'phone' },
+    explanation: 'Every working urinal is right next to someone. The broken one doesn\'t help: take the stall.',
+  },
+  {
+    id: 'sink-spacing',
+    title: 'Sinks everywhere',
+    spots: [U, SINK, U, U, SINK, U],
+    occupied: { 3: 'standing' },
+    explanation: 'Urinal 1 is three spots from him; urinal 6 only two.',
+  },
+  {
+    id: 'divider-by-the-door',
+    title: 'Divider by the door',
+    spots: row(5),
+    occupied: { 0: 'standing', 3: 'phone' },
+    dividers: [0],
+    explanation: 'Urinal 2 has a divider shielding you from the door guy and is two spots from the phone guy.',
+  },
+  {
+    id: 'hidden-gap',
+    title: 'The hidden gap',
+    spots: row(6),
+    occupied: { 1: 'standing', 4: 'wide' },
+    dividers: [3],
+    explanation: 'Urinal 4 is two spots from the first guy and has a divider between you and the second.',
+  },
+  {
+    id: 'next-to-the-stall',
+    title: 'Next to a busy stall',
+    spots: [U, U, U, STALL, U],
+    occupied: { 0: 'standing', 3: 'standing' },
+    explanation: 'The guy in the stall is behind a door. Urinal 5 is four spots from the other one.',
+  },
+  {
+    id: 'dirty-or-stall',
+    title: 'Dirty sandwich or stall?',
+    spots: [U, U, DIRTY, U, STALL],
+    occupied: { 1: 'standing', 3: 'phone' },
+    explanation: 'The clean free urinal is next to someone and the dirty one is a sandwich. Stall.',
+  },
+  {
+    id: 'kid-low-trap',
+    title: 'Kid by the door',
+    spots: [LOW, U, U, U, U, U],
+    occupied: { 0: 'kid', 3: 'standing' },
+    explanation: 'Urinal 6 is two spots from the man; everything else touches someone.',
+  },
+  {
+    id: 'seven-two-answers',
+    title: 'Two right answers',
+    spots: row(7),
+    occupied: { 2: 'phone', 6: 'standing' },
+    explanation: 'Urinal 1 and urinal 5 are both two spots from the nearest guy.',
+  },
+  {
+    id: 'one-stall-busy',
+    title: 'One stall busy, guy in the middle',
+    spots: [STALL, U, U, U, STALL],
+    occupied: { 0: 'standing', 2: 'phone' },
+    explanation: 'Both free urinals are next to the phone guy. Take the free stall at the end.',
+  },
+  {
+    id: 'one-divider-not-enough',
+    title: 'One divider is not enough',
+    spots: row(4, [STALL]),
+    occupied: { 0: 'standing', 2: 'phone' },
+    dividers: [0],
+    explanation: 'Urinal 2 still touches the guy on its right, and urinal 4 too. Stall.',
+  },
+  {
+    id: 'sink-trap-stall',
+    title: 'The sink trap',
+    spots: [U, SINK, U, U, STALL],
+    occupied: { 0: 'standing', 3: 'leaning' },
+    explanation: 'Urinal 3 looks far from the door guy, but it touches the other one. Stall.',
+  },
+  {
+    id: 'broken-buffers',
+    title: 'Broken buffers',
+    spots: [U, BROKEN, U, BROKEN, U],
+    occupied: { 0: 'standing', 4: 'phone' },
+    explanation: 'The middle urinal is two spots from both: the broken ones are a free buffer.',
+  },
+  {
+    id: 'six-divider-middle',
+    title: 'Divider in the middle',
+    spots: row(6),
+    occupied: { 0: 'standing', 5: 'hips' },
+    dividers: [2],
+    explanation: 'Urinals 3 and 4 are both two spots from the nearest guy.',
+  },
+  {
+    id: 'class-and-teacher',
+    title: 'The teacher too',
+    context: 'School trip.',
+    spots: row(7),
+    occupied: { 0: 'kid', 1: 'kid', 4: { pose: 'standing', tag: 'Teacher' } },
+    explanation: 'Urinal 7 is two spots from the teacher; the rest touch someone.',
+  },
+  {
+    id: 'two-sinks-seven',
+    title: 'Two sinks',
+    spots: [U, U, SINK, U, U, SINK, U],
+    occupied: { 1: 'leaning', 4: 'standing' },
+    explanation: 'Urinal 7 is two spots from the nearest guy.',
+  },
+  {
+    id: 'phone-divider',
+    title: 'Divider on the right',
+    spots: row(5),
+    occupied: { 1: { pose: 'phone', say: 'Can you hear me?' }, 4: 'standing' },
+    dividers: [3],
+    explanation: 'Urinal 4 is two from the phone guy and has a divider on the other side.',
+  },
+  {
+    id: 'both-stalls-busy',
+    title: 'Both stalls busy',
+    spots: [STALL, U, U, U, STALL],
+    occupied: { 0: 'standing', 1: 'standing', 4: 'standing' },
+    explanation: 'The stall guys don\'t count. Urinal 4 is two spots from the other one.',
+  },
+  {
+    id: 'low-is-a-sandwich',
+    title: 'Low one in a gap',
+    spots: [U, U, LOW, U],
+    occupied: { 1: 'standing', 3: 'phone' },
+    explanation: 'The kid urinal is a sandwich; urinal 1 has only one neighbour.',
+  },
 ];
+
+// Difficulty of every scenario (a test checks each one has exactly one).
+export const LEVELS = ['easy', 'medium', 'hard'];
+const LEVEL_IDS = {
+  easy: 'empty-room one-at-the-door one-in-the-middle both-ends buddies kid three-middle-taken four-second-taken far-end-taken door-side-trio pair-on-the-right lonely-middle left-crowd airport leaners right-heavy urinal-free-stall-free broken-edges festival sink-in-the-middle sinks-between kid-at-the-low-one your-boss best-mate small-talker father-in-law celebrity the-groom drunk-guy drunk-at-the-end the-whistler the-waver father-and-son gym',
+  medium: 'two-guys-one-gap sandwich-and-a-stall out-of-order two-gaps gap-of-two split-seven every-other sandwich-or-end hands-on-hips three-and-one checkerboard-stall ends-and-stall stall-taken-one-free full-house-stall broken-pair dividers-everywhere kid-urinal-by-the-door only-low-left dirty-far-end your-dad ceo-and-intern phone-call two-friends-talking sink-spacing kid-low-trap six-divider-middle class-and-teacher two-sinks-seven both-stalls-busy low-is-a-sandwich',
+  hard: 'half-time stadium-gap stall-guy stall-by-the-door broken-then-stall dividers-sandwich one-divider divider-gap divider-stall-choice kid-urinal-or-sandwich dirty-dilemma dirty-middle school-trip counting-trap broken-no-help divider-by-the-door hidden-gap next-to-the-stall dirty-or-stall seven-two-answers one-stall-busy one-divider-not-enough sink-trap-stall broken-buffers phone-divider',
+};
+for (const [level, ids] of Object.entries(LEVEL_IDS)) for (const id of ids.split(' ')) {
+  const sc = SCENARIOS.find((x) => x.id === id);
+  if (sc) sc.level = level;
+}
 
 const byId = new Map(SCENARIOS.map((s) => [s.id, s]));
 export const getScenario = (id) => byId.get(id);

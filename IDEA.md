@@ -84,7 +84,7 @@ v0 implemented: lobby with invite link/code, play flow, organizer start/reveal, 
 Answers are locked once given; the server withholds the correct answers and everybody's
 picks until the organizer reveals.
 
-v0.2: 70 situations (dividers, sinks, kid-height and dirty urinals, occupied stalls, name
+v0.2: 70 situations (now 89) (dividers, sinks, kid-height and dirty urinals, occupied stalls, name
 tags, speech bubbles, context lines; several accept more than one answer). The organizer
 picks 5/10/15/20 random situations; ones this browser already played come last.
 *Play again* after the reveal starts a new round for the same group (everyone is moved
@@ -102,6 +102,11 @@ size jokes, a special one for sandwiches; next to a kid only a telling-off, neve
 joke), praise for good picks, the neighbours saying the jokes in comic speech bubbles (two-guy
 dialogue for sandwiches), and awards (urinal
 master, flasher of the day).
+
+v0.5: difficulty. 89 situations graded easy (34) / medium (30) / hard (25, mostly traps:
+tempting ends, dividers that do or don't save you, stall guys who don't count, sinks).
+The organizer picks Fácil / Media / Difícil / Aleatoria (equal mix) for every round; the
+level shows as a badge while playing.
 
 Next ideas: timer per scenario, SSE instead of polling, scenario
 editor, i18n (ES/EN).

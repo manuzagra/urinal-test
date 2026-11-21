@@ -36,6 +36,7 @@ export function openDb(path) {
   const cols = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
   if (!cols.includes('history')) db.exec("ALTER TABLE games ADD COLUMN history TEXT NOT NULL DEFAULT '[]'"); // ids played in this group's rounds so far
   if (!cols.includes('lang')) db.exec("ALTER TABLE games ADD COLUMN lang TEXT NOT NULL DEFAULT 'es'");
+  if (!cols.includes('level')) db.exec("ALTER TABLE games ADD COLUMN level TEXT NOT NULL DEFAULT 'mixed'"); // easy|medium|hard|mixed
   if (!cols.includes('next_code')) db.exec('ALTER TABLE games ADD COLUMN next_code TEXT'); // the "play again" round
   return db;
 }

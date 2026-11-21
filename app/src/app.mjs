@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomUUID, randomInt } from 'node:crypto';
 import { extname, join, normalize, resolve } from 'node:path';
-import { SCENARIOS, LANGS, getScenario, correctSpots, isPickable, publicScenario, localize } from './scenarios.mjs';
+import { SCENARIOS, LANGS, LEVELS, getScenario, correctSpots, isPickable, publicScenario, localize } from './scenarios.mjs';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I/L/O: easy to read out loud
 const MAX_PLAYERS = 60;
@@ -22,19 +22,29 @@ class HttpError extends Error {
 
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-// Random scenarios, preferring ones not in `exclude` (already played); refills
-// with played ones once everything has been seen.
-export function pickScenarios(count, exclude = []) {
+// Random scenarios of a difficulty (easy | medium | hard | mixed), preferring ones not in
+// `exclude` (already played) and refilling with played ones, then with other levels.
+// "mixed" takes the levels in turns, so a game really gets a mix.
+export const DIFFICULTIES = [...LEVELS, 'mixed'];
+export function pickScenarios(count, exclude = [], level = 'mixed') {
   const want = Math.min(Math.max(Math.round(Number(count)) || 10, 1), SCENARIOS.length);
   const seen = new Set(Array.isArray(exclude) ? exclude.map(String) : []);
-  const ids = SCENARIOS.map((s) => s.id);
-  return [...shuffle(ids.filter((id) => !seen.has(id))), ...shuffle(ids.filter((id) => seen.has(id)))].slice(0, want);
+  const idsOf = (pred) => SCENARIOS.filter(pred).map((s) => s.id);
+  const order = (ids) => [...shuffle(ids.filter((id) => !seen.has(id))), ...shuffle(ids.filter((id) => seen.has(id)))];
+  if (LEVELS.includes(level)) return [...order(idsOf((s) => s.level === level)), ...order(idsOf((s) => s.level !== level))].slice(0, want);
+  // unplayed first (levels in turns), then played ones (levels in turns)
+  const out = [];
+  for (const fresh of [true, false]) {
+    const queues = LEVELS.map((l) => shuffle(idsOf((s) => s.level === l && seen.has(s.id) !== fresh)));
+    while (out.length < want && queues.some((q) => q.length)) for (const q of queues) if (q.length && out.length < want) out.push(q.shift());
+  }
+  return shuffle(out);
 }
 
 export function createApp(db, { publicDir } = {}) {
   const q = {
     game: db.prepare('SELECT * FROM games WHERE code = ?'),
-    insertGame: db.prepare('INSERT INTO games (code, scenario_ids, history, lang, created_at) VALUES (?, ?, ?, ?, ?)'),
+    insertGame: db.prepare('INSERT INTO games (code, scenario_ids, history, lang, level, created_at) VALUES (?, ?, ?, ?, ?, ?)'),
     setNext: db.prepare('UPDATE games SET next_code = ? WHERE code = ?'),
     hostOf: db.prepare('SELECT * FROM players WHERE game_code = ? AND is_host = 1'),
     setStatus: db.prepare('UPDATE games SET status = ? WHERE code = ?'),
@@ -74,11 +84,12 @@ export function createApp(db, { publicDir } = {}) {
     return { playerId: Number(r.lastInsertRowid), token };
   }
 
-  function newGame(hostNickname, count, exclude = [], history = [], lang = 'es') {
-    const ids = pickScenarios(count, [...history, ...(Array.isArray(exclude) ? exclude : [])]);
+  function newGame(hostNickname, count, exclude = [], history = [], lang = 'es', level = 'mixed') {
+    if (!DIFFICULTIES.includes(level)) level = 'mixed';
+    const ids = pickScenarios(count, [...history, ...(Array.isArray(exclude) ? exclude : [])], level);
     q.purge.run(Date.now() - MAX_AGE_MS);
     const c = newCode();
-    q.insertGame.run(c, JSON.stringify(ids), JSON.stringify([...new Set([...history, ...ids])]), LANGS.includes(lang) ? lang : 'es', Date.now());
+    q.insertGame.run(c, JSON.stringify(ids), JSON.stringify([...new Set([...history, ...ids])]), LANGS.includes(lang) ? lang : 'es', level, Date.now());
     return { code: c, ...addPlayer(c, hostNickname, true) };
   }
 
@@ -93,6 +104,7 @@ export function createApp(db, { publicDir } = {}) {
       code: game.code,
       status: game.status,
       lang: game.lang ?? 'es',
+      level: game.level ?? 'mixed',
       total: ids.length,
       players: players.map((p) => ({ id: p.id, nickname: p.nickname, isHost: !!p.is_host, answered: answered.get(p.id) ?? 0 })),
       you: me ? { id: me.id, nickname: me.nickname, isHost: !!me.is_host } : null,
@@ -132,7 +144,7 @@ export function createApp(db, { publicDir } = {}) {
     if (!code) {
       if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
       const nickname = cleanName(body.nickname);
-      return newGame(nickname, body.scenarioCount, body.exclude, [], body.lang);
+      return newGame(nickname, body.scenarioCount, body.exclude, [], body.lang, body.level);
     }
 
     const game = getGame(code);
@@ -165,7 +177,7 @@ export function createApp(db, { publicDir } = {}) {
           const host = q.hostOf.get(game.next_code);
           if (host) return { code: game.next_code, playerId: host.id, token: host.token };
         }
-        const r = newGame(me.nickname, body.scenarioCount ?? JSON.parse(game.scenario_ids).length, body.exclude, JSON.parse(game.history ?? '[]'), LANGS.includes(body.lang) ? body.lang : game.lang);
+        const r = newGame(me.nickname, body.scenarioCount ?? JSON.parse(game.scenario_ids).length, body.exclude, JSON.parse(game.history ?? '[]'), LANGS.includes(body.lang) ? body.lang : game.lang, DIFFICULTIES.includes(body.level) ? body.level : game.level);
         q.setNext.run(r.code, game.code);
         return r;
       }

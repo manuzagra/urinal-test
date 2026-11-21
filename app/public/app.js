@@ -34,6 +34,9 @@ function rememberSeen(ids) {
 const spotLabel = (sc, k) => t({ stall: 'spot.stall', low: 'spot.low' }[sc.spots[k]] ?? 'spot.urinal', { n: Number(k) + 1 });
 const COUNTS = [3, 5, 10, 15, 20, 30];
 const countOptions = (sel) => COUNTS.map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${t(n <= 3 ? 'count.quick' : n >= 20 ? 'count.long' : 'count.n', { n })}</option>`).join('');
+const DIFFS = ['easy', 'medium', 'hard', 'mixed'];
+const levelOptions = (sel) => DIFFS.map((l) => `<option value="${l}"${l === sel ? ' selected' : ''}>${t('level.' + l)}</option>`).join('');
+const levelBadge = (sc) => (sc.level ? `<span class="lvl ${sc.level}">${t('level.' + sc.level)}</span>` : '');
 const context = (sc) => (sc.context ? `<p class="context">📍 ${esc(sc.context)}</p>` : '');
 const hash = (str) => { let h = 7; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) | 0; return h; };
 
@@ -54,6 +57,9 @@ function homeScreen() {
       <label>${t('home.count')}</label>
       <select name="count">${countOptions(10)}</select>
       <p class="muted small">${t('home.countHint')}</p>
+      <label>${t('home.level')}</label>
+      <select name="level" id="level">${levelOptions(store.get('urinal:level') ?? 'mixed')}</select>
+      <p class="muted small" id="levelHint">${t('level.hint.' + (store.get('urinal:level') ?? 'mixed'))}</p>
       <label>${t('home.lang')}</label>
       <select name="lang" id="lang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === getLang() ? ' selected' : ''}>${v}</option>`).join('')}</select>
       <p class="err"></p><button>${t('home.createBtn')}</button>
@@ -65,6 +71,7 @@ function homeScreen() {
       <p class="err"></p><button class="secondary">${t('home.joinBtn')}</button>
     </form>`;
 
+  $app.querySelector('#level').addEventListener('change', (e) => { store.set('urinal:level', e.target.value); $app.querySelector('#levelHint').textContent = t('level.hint.' + e.target.value); });
   $app.querySelector('#lang').addEventListener('change', (e) => { store.set('urinal:lang', e.target.value); setLang(e.target.value); homeScreen(); });
   const run = (form, fn) => form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -74,7 +81,7 @@ function homeScreen() {
     try { await fn(f); } catch (x) { err.textContent = x.message; }
   });
   run($app.querySelector('#create'), async (f) => {
-    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count), lang: f.lang, exclude: store.get('urinal:seen') ?? [] } });
+    const r = await api('/api/games', { method: 'POST', body: { nickname: f.nickname, scenarioCount: Number(f.count), lang: f.lang, level: f.level, exclude: store.get('urinal:seen') ?? [] } });
     store.set('urinal:' + r.code, { token: r.token });
     location.href = '/g/' + r.code;
   });
@@ -200,7 +207,7 @@ function gameScreen(code) {
       <div class="card">
         <div class="row between"><h2>${idx + 1}. ${esc(sc.title)}</h2><span class="muted">${t('play.answered', { n: answered, total: st.total })}</span></div>
         <div class="progress"><i style="width:${(100 * answered) / st.total}%"></i></div>
-        ${context(sc)}
+        ${levelBadge(sc)}${context(sc)}
         <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? t('play.hint') : t('play.locked')}</p>
         ${renderScene(sc, { mine, mineLabel: t('who.you'), pickable: mine === undefined })}
         <div class="dots">${st.scenarios.map((s, i) => `<button data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''} ${i === idx ? 'cur' : ''}">${i + 1}</button>`).join('')}</div>
@@ -265,7 +272,7 @@ function gameScreen(code) {
       const whoPicked = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>${r.correct.includes(Number(k)) ? ' ✅' : ''}: ${ids
         .map((id) => `<button class="name${id === viewing ? ' sel' : ''}" data-view="${id}">${esc(name[id])}</button>`).join(' ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
-        ${context(sc)}
+        ${levelBadge(sc)}${context(sc)}
         ${renderScene(sc, { mine: p, mineLabel: isMe ? t('who.you') : name[viewing], correct: r.correct, votes: counts, total: voters, speech })}
         ${joke}
         <div class="facts"><div>✅ <b>${t('res.correct')}:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>${t('res.popular')}:</b> ${popular}</div></div>
@@ -279,7 +286,7 @@ function gameScreen(code) {
       <div class="viewing"><span class="muted small">${t('res.showing')}</span>${ranked.map((p) => `<button class="name${p.id === viewing ? ' sel' : ''}" data-view="${p.id}">${p.id === st.you.id ? t('res.you') : esc(p.nickname)}</button>`).join('')}</div>
       ${st.you.isHost ? '' : `<p class="muted center">${t('res.follow')}</p>`}
       ${cards}<p class="center"><a href="/"><button class="secondary">${t('res.newGame')}</button></a></p>
-      ${st.you.isHost ? `<div class="hostbar row between"><span>${t('res.again')}</span><select id="againCount">${countOptions(COUNTS.includes(st.total) ? st.total : 10)}</select><button data-act="again">${t('res.againBtn')}</button></div>` : ''}`;
+      ${st.you.isHost ? `<div class="hostbar row between"><span>${t('res.again')}</span><select id="againCount">${countOptions(COUNTS.includes(st.total) ? st.total : 10)}</select><select id="againLevel">${levelOptions(st.level ?? 'mixed')}</select><button data-act="again">${t('res.againBtn')}</button></div>` : ''}`;
   }
 
   // one delegated click handler for every screen
@@ -296,7 +303,8 @@ function gameScreen(code) {
     else if (a === 'again') {
       try {
         const scenarioCount = Number($app.querySelector('#againCount')?.value) || st.total;
-        const r = await api(`/api/games/${code}/again`, { method: 'POST', token: token(), body: { scenarioCount, exclude: store.get('urinal:seen') ?? [] } });
+        const level = $app.querySelector('#againLevel')?.value;
+        const r = await api(`/api/games/${code}/again`, { method: 'POST', token: token(), body: { scenarioCount, level, exclude: store.get('urinal:seen') ?? [] } });
         store.set('urinal:' + r.code, { token: r.token });
         location.href = '/g/' + r.code;
       } catch (x) { toast(x.message); }
