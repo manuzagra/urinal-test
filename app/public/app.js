@@ -65,13 +65,24 @@ function homeScreen() {
 
 // ---------------------------------------------------------------- game
 function gameScreen(code) {
-  let st = null, lastKey = '', idx = null, busy = false;
+  let st = null, lastKey = '', lastRestKey = '', idx = null, busy = false;
   const token = () => store.get('urinal:' + code)?.token;
 
   const apply = (s) => {
     const key = JSON.stringify(s);
     if (key === lastKey) return;
-    lastKey = key; st = s; render();
+    // While playing, other people's progress must not re-render the scene
+    // under the player's finger (it would swallow a tap): patch the host bar only.
+    const { players, ...rest } = s;
+    const restKey = JSON.stringify(rest);
+    const stillAnswering = s.scenarios && !s.scenarios.every((x) => x.id in s.myAnswers);
+    if (st && stillAnswering && s.status === 'playing' && st.status === 'playing' && restKey === lastRestKey) {
+      lastKey = key; st = s;
+      const bar = $app.querySelector('.hostbar');
+      if (bar) bar.outerHTML = hostBar();
+      return;
+    }
+    lastKey = key; lastRestKey = restKey; st = s; render();
   };
   const poll = async () => {
     try { apply(await api(`/api/games/${code}`, { token: token() })); }
