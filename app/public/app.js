@@ -1,4 +1,4 @@
-import { renderScene, awkward } from '/scene.js';
+import { renderScene, awkward, jokeFor } from '/scene.js';
 import { LANGS, setLang, getLang, t, pick } from '/i18n.js';
 
 const $app = document.getElementById('app');
@@ -252,7 +252,7 @@ function gameScreen(code) {
       const good = p !== undefined && r.correct.includes(p);
       const verdict = p === undefined ? `<span class="muted">${t('res.noAnswer', { who })}</span>`
         : good ? `<span class="ok">${t('res.gotIt', { who })}</span>` : `<span class="bad">${t('res.wrong', { who })}</span>`;
-      const aw = awkward(sc, p, r.correct);
+      const aw = jokeFor(sc, p, r.correct); // a joke for every wrong pick
       // very wrong: the neighbours roast you in comic bubbles (the kid only tells you off)
       let speech = [];
       if (aw) {
