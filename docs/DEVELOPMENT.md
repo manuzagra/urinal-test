@@ -9,7 +9,7 @@
   contains a `|`, so read it with `grep … | cut -d= -f2-`, don't `source .env`).
 - Production app: Coolify project `urinal-test`, application `urinal-test`, Docker
   Compose from `main`, **auto-deploys on push to `main`**. Domain is set on service `web`
-  with port `:3000`. Currently `http://urinario.54.37.229.58.sslip.io` (no DNS needed).
+  with port `:3000`. Live at **https://pee-test.manuzagra.es**.
   Before releasing: `make test` and `make prod-local`; after: check `/healthz`.
 - **Public repo**: never write tokens, URLs-with-credentials or `.env` contents into
   tracked files. `make hooks` enables `.githooks/pre-commit`, which blocks env files,
@@ -79,4 +79,4 @@
 
 ## Status & ideas
 v0 is done and works (see IDEA.md §8). Likely next steps, in the user's priority order:
-iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release v0.5.0 deployed (2026-11-21) → own domain → timer per scenario, SSE instead of polling, ES/EN.
+iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release v0.5.0 deployed at https://pee-test.manuzagra.es (2026-11-21) → timer per scenario, SSE instead of polling, ES/EN.

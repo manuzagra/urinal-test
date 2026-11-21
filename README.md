@@ -14,9 +14,9 @@ application **urinal-test** (Docker Compose build pack, file `/compose.prod.yaml
 branch `main`, via the Coolify GitHub App).
 
 - **Release = push to `main`**: Coolify auto-deploys on every push to `main`.
-- Public URL: http://urinario.54.37.229.58.sslip.io (temporary, no DNS needed).
-  For a real domain: add a DNS `A` record pointing to the server IP, then set it on
-  service `web` in Coolify **with port 3000** (e.g. `https://urinario.example.com:3000`;
-  the port tells Traefik where the app listens) and redeploy.
+- Public URL: **https://pee-test.manuzagra.es** (DNS `A` record → server IP, Let's
+  Encrypt certificate by Coolify). To change it, set the domain on service `web` in
+  Coolify **with port 3000** (e.g. `https://pee-test.manuzagra.es:3000`; the port tells
+  Traefik where the app listens) and redeploy.
 - No environment variables are required (invite links use the URL the organizer is on).
 - The SQLite database persists in the `appdata` volume. Health check: `/healthz`.
