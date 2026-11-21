@@ -97,7 +97,7 @@ including *Play again*.
 
 v0.4: Spanish (Spain) by default, English optional: the organizer picks the game's
 language and everyone in that game sees it (UI, situations, errors). Results got fun:
-cheeky jokes when a pick is wrong *and* right next to a guy ("¡te he visto el pito!",
+a cheeky joke for every wrong pick, harder ones when it is right next to a guy ("¡te he visto el pito!",
 size jokes, a special one for sandwiches; next to a kid only a telling-off, never a dick
 joke), praise for good picks, the neighbours saying the jokes in comic speech bubbles (two-guy
 dialogue for sandwiches), and awards (urinal

@@ -273,3 +273,16 @@ export function awkward(sc, spot, correct) {
   if (!near.length) return null;
   return { kind: near.some((j) => pose(j) === 'kid') ? 'kid' : near.length > 1 ? 'sandwich' : 'roast', near };
 }
+
+// Who says what for a wrong pick: awkward() when you stood next to someone, otherwise the
+// nearest guy at a urinal shouts it ('miss'/'kidMiss'), or you talk to yourself ('alone').
+export function jokeFor(sc, spot, correct) {
+  if (spot === undefined || correct.includes(spot)) return null;
+  const aw = awkward(sc, spot, correct);
+  if (aw) return aw;
+  const pose = (j) => { const o = sc.occupied[j]; return typeof o === 'object' && o ? o.pose ?? 'standing' : o; };
+  const guys = Object.keys(sc.occupied).map(Number).filter((j) => sc.spots[j] !== 'stall');
+  if (!guys.length) return { kind: 'alone', near: [spot] };
+  const nearest = guys.sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot) || b - a)[0];
+  return { kind: pose(nearest) === 'kid' ? 'kidMiss' : 'miss', near: [nearest] };
+}

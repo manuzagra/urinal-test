@@ -35,8 +35,10 @@
   `app/src/scenarios.es.mjs`; a test fails if a scenario lacks a translation. The game's
   `lang` column decides the language; the server sends error `code`s that the client
   translates.
-- Tone: it's a party game, keep the copy cheeky. "Very wrong" picks are detected by
-  `awkward()` in `scene.js`; the neighbours then say a joke in comic speech bubbles drawn
+- Tone: it's a party game, keep the copy cheeky. **Every wrong pick gets a joke**:
+  `jokeFor()` in `scene.js` picks the kind and speaker (`awkward()` = right next to a guy;
+  otherwise the nearest guy shouts it, or you talk to yourself in an empty bathroom). The
+  awards only count `awkward()` ones. The speakers say the joke in comic speech bubbles drawn
   above the wall (`speech` option of `renderScene`; sandwiches are two-line dialogues). **Never a dick joke when the neighbour is a kid**
   (tested).
 - `app/public/scene.js`: draws a scenario as SVG (urinal/low/dirty/stall/broken/sink,

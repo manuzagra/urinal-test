@@ -4,7 +4,7 @@ import { openDb } from '../src/db.mjs';
 import { createApp, pickScenarios } from '../src/app.mjs';
 import { SCENARIOS, correctSpots, isPickable, localize } from '../src/scenarios.mjs';
 import { ES } from '../src/scenarios.es.mjs';
-import { awkward, renderScene } from '../public/scene.js';
+import { awkward, jokeFor, renderScene } from '../public/scene.js';
 import { JOKE_LISTS } from '../public/i18n.js';
 
 test('every scenario has a valid, pickable, non-empty correct answer', () => {
@@ -178,7 +178,8 @@ test('jokes: same shape in every language, sandwiches are dialogues, kids never 
   for (const [lang, j] of Object.entries(JOKE_LISTS)) {
     assert.ok(j.roast.length >= 5 && j.praise.length && j.kid.length, lang);
     for (const d of j.sandwich) assert.ok(Array.isArray(d) && d.length === 2, `${lang}: sandwich must be [left, right]`);
-    for (const line of j.kid) assert.doesNotMatch(line, /pito|polla|cacahuete|talla|dick|peanut|size/i, `${lang}: ${line}`);
+    assert.ok(j.miss.length >= 5 && j.kidMiss.length && j.alone.length, lang);
+    for (const line of [...j.kid, ...j.kidMiss]) assert.doesNotMatch(line, /pito|polla|cacahuete|talla|dick|peanut|size/i, `${lang}: ${line}`);
   }
 });
 
@@ -190,4 +191,19 @@ test('scene: comic bubbles make the scene taller and keep the text escaped', () 
   assert.ok(h(comic) > h(plain));
   assert.equal((comic.match(/class="comic"/g) ?? []).length, 2);
   assert.ok(comic.includes('Hola &lt;b&gt;') && !comic.includes('<b>'));
+});
+
+test('every wrong pick gets a joke and a speaker; right picks and no answer get none', () => {
+  const sc = { spots: ['urinal', 'urinal', 'urinal', 'urinal', 'urinal', 'stall'], occupied: { 0: 'standing', 5: 'standing' } };
+  assert.equal(jokeFor(sc, 4, [4]), null);
+  assert.equal(jokeFor(sc, undefined, [4]), null);
+  assert.deepEqual(jokeFor(sc, 1, [4]), { kind: 'roast', near: [0] });
+  assert.deepEqual(jokeFor(sc, 2, [4]), { kind: 'miss', near: [0] }, 'nearest guy at a urinal, not the one in the stall');
+  assert.deepEqual(jokeFor({ ...sc, occupied: { 0: 'kid' } }, 3, [4]), { kind: 'kidMiss', near: [0] });
+  assert.deepEqual(jokeFor({ ...sc, occupied: {} }, 2, [0, 4]), { kind: 'alone', near: [2] });
+  for (const s2 of SCENARIOS) for (let i = 0; i < s2.spots.length; i++) {
+    if (!isPickable(s2, i) || correctSpots(s2).includes(i)) continue;
+    const j = jokeFor(s2, i, correctSpots(s2));
+    assert.ok(j && j.near.length, `${s2.id}: wrong pick ${i} has no joke`);
+  }
 });

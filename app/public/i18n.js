@@ -78,6 +78,9 @@ const EN = {
 // roast:    one neighbour speaks (wrong pick right next to him)
 // sandwich: [left guy, right guy] (you are between two)
 // kid:      the kid speaks -> never a dick joke, just a telling-off
+// miss:     wrong but not next to anybody: the nearest guy shouts it from a distance
+// kidMiss:  same, but the nearest one is a kid -> clean
+// alone:    wrong in an empty bathroom: you talk to yourself
 const JOKES = {
   es: {
     roast: [
@@ -101,6 +104,18 @@ const JOKES = {
       '¡Eh! ¡Que soy un niño! Ponte más lejos. 😠',
       '¡Papááá, este señor se ha puesto muy cerca! 😤',
     ],
+    miss: [
+      '{who}, desde aquí no se ve nada… y de cerca sospecho que tampoco. 🤏',
+      'Has fallado, pero tranquilo: con algo tan pequeño nadie se fija. 🔍',
+      'Ese no era el sitio, {who}. Igual que esa no era la talla que esperabas. 🤏',
+      'Eliges urinario igual que mides: fatal. 📏',
+      'Casi, {who}. Como tu pito: casi. 🤏',
+      'Te he visto dudar. Y también he visto lo otro, pero no diré nada. 🤐',
+      'Error de novato. ¿Es tu primera vez meando de pie? 🧍',
+      'Mal sitio, {who}. Pero bonita… eh… técnica. 👀',
+    ],
+    kidMiss: ['¡Hasta yo lo hago mejor! 😝', 'Mi profe dice que eso está mal. 📏'],
+    alone: ['Un baño entero para mí y elijo el peor sitio. 🤦', 'Si entra alguien, me toca bocadillo. Bien hecho, yo. 🤦', 'Ojalá no entre nadie… 🙏'],
     praise: ['Elegancia urinaria nivel experto. 🎩', 'De manual. Tu próstata y tu dignidad, intactas. 👌', 'Así se mea, señores. 🏅', 'Distancia perfecta. Nadie ha visto nada. 😎'],
   },
   en: {
@@ -125,6 +140,18 @@ const JOKES = {
       'Hey! I\'m a kid! Go further away. 😠',
       'Daaad, this man is standing too close! 😤',
     ],
+    miss: [
+      '{who}, I can\'t see a thing from here… and I bet up close it\'s the same. 🤏',
+      'Wrong spot, but relax: with something that small nobody notices. 🔍',
+      'That wasn\'t the spot, {who}. Just like that wasn\'t the size you hoped for. 🤏',
+      'You pick urinals the way you measure: badly. 📏',
+      'Almost, {who}. Like your dick: almost. 🤏',
+      'I saw you hesitate. I also saw the other thing, but my lips are sealed. 🤐',
+      'Rookie mistake. First time peeing standing up? 🧍',
+      'Wrong spot, {who}. Nice… er… technique, though. 👀',
+    ],
+    kidMiss: ['Even I can do better! 😝', 'My teacher says that\'s wrong. 📏'],
+    alone: ['A whole bathroom to myself and I pick the worst spot. 🤦', 'If someone comes in, I\'m in a sandwich. Well done, me. 🤦', 'Please nobody come in… 🙏'],
     praise: ['Expert-level urinal elegance. 🎩', 'Textbook. Bladder and dignity intact. 👌', 'That, gentlemen, is how you pee. 🏅', 'Perfect distance. Nobody saw a thing. 😎'],
   },
 };
