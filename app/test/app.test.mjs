@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/db.mjs';
-import { createApp } from '../src/app.mjs';
+import { createApp, pickScenarios } from '../src/app.mjs';
 import { SCENARIOS, correctSpots, isPickable } from '../src/scenarios.mjs';
 
 test('every scenario has a valid, pickable, non-empty correct answer', () => {
@@ -10,6 +10,29 @@ test('every scenario has a valid, pickable, non-empty correct answer', () => {
     assert.ok(c.length > 0, s.id);
     for (const i of c) assert.ok(isPickable(s, i), `${s.id}:${i}`);
   }
+});
+
+test('scenario pack: enough, unique ids, explanations, valid tags and dividers', () => {
+  assert.ok(SCENARIOS.length >= 50, `only ${SCENARIOS.length} scenarios`);
+  assert.equal(new Set(SCENARIOS.map((s) => s.id)).size, SCENARIOS.length);
+  for (const s of SCENARIOS) {
+    assert.ok(s.title && s.explanation, s.id);
+    assert.ok(s.spots.length >= 3 && s.spots.length <= 7, s.id);
+    for (const i of Object.keys(s.occupied)) assert.ok(['urinal', 'low', 'dirty', 'stall'].includes(s.spots[i]), `${s.id}: guy on ${s.spots[i]}`);
+    for (const d of s.dividers ?? []) assert.ok(d >= 0 && d < s.spots.length - 1, `${s.id}: divider ${d}`);
+  }
+});
+
+test('pickScenarios prefers unplayed scenarios, then refills', () => {
+  const all = SCENARIOS.map((s) => s.id);
+  const played = all.slice(0, all.length - 5);
+  const five = pickScenarios(5, played);
+  assert.deepEqual([...five].sort(), all.slice(-5).sort());
+  const ten = pickScenarios(10, played);
+  assert.equal(new Set(ten).size, 10);
+  assert.ok(all.slice(-5).every((id) => ten.includes(id)));
+  assert.equal(pickScenarios(999).length, all.length);
+  assert.equal(pickScenarios('junk', 'junk').length, 10);
 });
 
 test('full game flow: create, join, answer, reveal; nothing leaks before reveal', async () => {
