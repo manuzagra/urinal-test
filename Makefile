@@ -1,6 +1,8 @@
-.PHONY: dev build prod-local
-dev:  ## run the placeholder (later: the real dev server)
-	cd app && node server.mjs
+.PHONY: dev test build prod-local
+dev:  ## dev server with auto-reload on :3000
+	cd app && npm run dev
+test: ## run tests
+	cd app && npm test
 build: ## build the production image
 	docker build --target runtime -t urinal-test .
 prod-local: build ## run the production image locally on :3001
