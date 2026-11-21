@@ -52,7 +52,8 @@ test('full game flow: create, join, answer, reveal; nothing leaks before reveal'
     let st = (await call(`/api/games/${host.code}`, { token: bob.token })).json;
     assert.equal(st.scenarios.length, 3);
     const sc = st.scenarios[0];
-    const free = sc.spots.findIndex((k, i) => k === 'urinal' && !(i in sc.occupied));
+    const free = sc.spots.findIndex((k, i) => ['urinal', 'low', 'dirty', 'stall'].includes(k) && !(i in sc.occupied));
+    assert.ok(free >= 0);
     assert.equal((await call(`/api/games/${host.code}/answers`, { method: 'POST', token: bob.token, body: { scenarioId: sc.id, spot: free } })).status, 409);
     assert.equal((await call(`/api/games/${host.code}/start`, { method: 'POST', token: bob.token })).status, 403);
     await call(`/api/games/${host.code}/start`, { method: 'POST', token: host.token });
@@ -90,7 +91,7 @@ test('play again: organizer starts a new round, players follow, situations do no
     await call(`/api/games/${host.code}/reveal`, { method: 'POST', token: host.token });
     assert.equal((await call(`/api/games/${host.code}/again`, { method: 'POST', token: bob.token })).status, 403);
 
-    const round2 = (await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token })).json;
+    const round2 = (await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token, body: { scenarioCount: 15 } })).json;
     assert.notEqual(round2.code, host.code);
     const again = (await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token })).json;
     assert.deepEqual(again, round2, 'idempotent');
@@ -105,7 +106,7 @@ test('play again: organizer starts a new round, players follow, situations do no
     assert.equal(st2.you.isHost, false);
     assert.equal(st2.players.find((p) => p.isHost).nickname, 'Host');
     const firstIds = new Set(old.scenarios.map((x) => x.id));
-    assert.equal(st2.scenarios.length, 10);
+    assert.equal(st2.scenarios.length, 15, 'organizer chose 15 for round 2');
     assert.ok(st2.scenarios.every((x) => !firstIds.has(x.id)), 'round 2 repeats a situation');
   } finally { server.close(); }
 });

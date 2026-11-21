@@ -44,6 +44,10 @@
   not `/workspace/app`. Avoid bind mounts from in here (`make prod-local` uses none).
 - While players are answering, polling must not re-render the scene (it swallowed taps).
   `app.js` only patches the host bar in that state; keep it that way.
+- `node --watch` (`make dev`) occasionally misses an edit: if the app behaves like old
+  code, restart `make dev` before debugging.
+- Mobile first: players are on phones. Check UI changes at ~390px wide. Text inside the
+  SVG scales with the number of spots (`k` in `scene.js`) so it stays readable there.
 - `node:sqlite` is experimental: the scripts pass `--disable-warning=ExperimentalWarning`.
 - *Play again*: `POST /api/games/:code/again` (organizer, after reveal) creates the next
   round and stores `next_code`; clients that see `next` in the state auto-join it.
@@ -59,5 +63,4 @@
 ## Status & ideas
 v0 is done and works (see IDEA.md §8). Likely next steps, in the user's priority order:
 iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release (`develop` → `main`) → Coolify
-deploy (README) → bigger scene on phones
-(6–7 urinals are small, speech bubbles hard to read), timer per scenario, SSE instead of polling, ES/EN.
+deploy (README) → timer per scenario, SSE instead of polling, ES/EN.

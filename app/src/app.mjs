@@ -156,7 +156,7 @@ export function createApp(db, { publicDir } = {}) {
           const host = q.hostOf.get(game.next_code);
           if (host) return { code: game.next_code, playerId: host.id, token: host.token };
         }
-        const r = newGame(me.nickname, JSON.parse(game.scenario_ids).length, body.exclude, JSON.parse(game.history ?? '[]'));
+        const r = newGame(me.nickname, body.scenarioCount ?? JSON.parse(game.scenario_ids).length, body.exclude, JSON.parse(game.history ?? '[]'));
         q.setNext.run(r.code, game.code);
         return r;
       }
