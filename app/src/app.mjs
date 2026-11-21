@@ -14,6 +14,15 @@ class HttpError extends Error {
 
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
+// Random scenarios, preferring ones not in `exclude` (already played); refills
+// with played ones once everything has been seen.
+export function pickScenarios(count, exclude = []) {
+  const want = Math.min(Math.max(Math.round(Number(count)) || 10, 1), SCENARIOS.length);
+  const seen = new Set(Array.isArray(exclude) ? exclude.map(String) : []);
+  const ids = SCENARIOS.map((s) => s.id);
+  return [...shuffle(ids.filter((id) => !seen.has(id))), ...shuffle(ids.filter((id) => seen.has(id)))].slice(0, want);
+}
+
 export function createApp(db, { publicDir } = {}) {
   const q = {
     game: db.prepare('SELECT * FROM games WHERE code = ?'),
@@ -103,8 +112,7 @@ export function createApp(db, { publicDir } = {}) {
     if (!code) {
       if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
       const nickname = cleanName(body.nickname);
-      const want = Math.round(Number(body.scenarioCount)) || SCENARIOS.length;
-      const ids = shuffle(SCENARIOS.map((s) => s.id)).slice(0, Math.min(Math.max(want, 1), SCENARIOS.length));
+      const ids = pickScenarios(body.scenarioCount, body.exclude);
       q.purge.run(Date.now() - MAX_AGE_MS);
       const c = newCode();
       q.insertGame.run(c, JSON.stringify(ids), Date.now());
@@ -175,7 +183,7 @@ export function createApp(db, { publicDir } = {}) {
       if (url.pathname === '/healthz') { res.end('ok'); return; }
       if (url.pathname.startsWith('/api/')) {
         let raw = '';
-        for await (const chunk of req) { raw += chunk; if (raw.length > 10_000) throw new HttpError(413, 'Too large'); }
+        for await (const chunk of req) { raw += chunk; if (raw.length > 50_000) throw new HttpError(413, 'Too large'); }
         let body = {};
         if (raw) { try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'Invalid JSON'); } }
         return send(res, 200, await api(req, url, body));

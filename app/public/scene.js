@@ -4,6 +4,9 @@
 //   options.votes    { spot: count }  vote bars (results)
 //   options.total    number of voters (for percentages)
 //   options.pickable true => free spots are clickable (data-spot)
+// Spot kinds: urinal | low (kid height) | dirty | stall | broken | sink (decoration)
+// occupied[i]: a pose string, or { pose, tag, say } (tag = name label, say = speech bubble)
+// dividers: [i, ...] = a privacy panel between spot i and i+1
 const SPOT_W = 130, LEFT = 64, FLOOR = 272, H = 346;
 
 const SHIRTS = ['#e4572e', '#2a9d8f', '#f4a261', '#6a4c93', '#3a86ff', '#8ac926', '#ff6b9d', '#5b6770'];
@@ -43,6 +46,53 @@ function broken(x) {
     <text x="0" y="6" text-anchor="middle" font-size="12" font-weight="800" fill="${INK}" font-family="system-ui,sans-serif">OUT OF ORDER</text></g>`;
 }
 
+function low(x) {
+  return `<g transform="translate(${x},70) scale(.72)">${urinal(0)}</g>`;
+}
+
+function dirty(x) {
+  const fly = (fx, fy) => `<g transform="translate(${fx},${fy})"><ellipse rx="3.5" ry="2.5" fill="${INK}"/><ellipse cx="-2" cy="-3" rx="3" ry="2" fill="#fff" opacity=".8"/><ellipse cx="2" cy="-3" rx="3" ry="2" fill="#fff" opacity=".8"/></g>`;
+  return `${urinal(x)}<g transform="translate(${x},0)">
+    <path d="M-25 160 Q-27 186 0 199 Q27 186 25 160 Q0 168 -25 160Z" fill="#e3c23a" opacity=".85"/>
+    <ellipse cx="4" cy="${FLOOR + 14}" rx="46" ry="9" fill="#e3c23a" opacity=".75"/>
+    ${fly(-30, 120)}${fly(28, 104)}${fly(10, 236)}
+    <path d="M-12 70 q-6 -8 0 -16 q6 -8 0 -16 M12 70 q-6 -8 0 -16 q6 -8 0 -16" fill="none" stroke="#8cae3c" stroke-width="3" stroke-linecap="round"/></g>`;
+}
+
+function sink(x) {
+  return `<g transform="translate(${x},0)">
+    <rect x="-36" y="40" width="72" height="62" rx="6" fill="#bfe3f2" stroke="${INK}" stroke-width="3"/>
+    <path d="M-24 52 l14 -6 M-24 64 l28 -12" stroke="#fff" stroke-width="3" opacity=".7"/>
+    <rect x="-4" y="108" width="8" height="18" fill="#c9d1d8" stroke="${INK}" stroke-width="2.5"/>
+    <path d="M-46 126 H46 Q42 160 0 162 Q-42 160 -46 126Z" fill="#fff" stroke="${INK}" stroke-width="3.5"/>
+    <rect x="-7" y="160" width="14" height="${FLOOR - 160}" fill="#dfe5ea" stroke="${INK}" stroke-width="2.5"/></g>`;
+}
+
+function occupiedStall(x, seed) {
+  return `${stall(x)}<g transform="translate(${x},0)">
+    <rect x="12" y="140" width="26" height="12" rx="3" fill="#e63946" stroke="${INK}" stroke-width="2"/>
+    <ellipse cx="-14" cy="${FLOOR - 5}" rx="12" ry="6" fill="#222"/><ellipse cx="14" cy="${FLOOR - 5}" rx="12" ry="6" fill="#222"/>
+    <rect x="-22" y="${FLOOR - 24}" width="44" height="12" rx="3" fill="${PANTS[seed % PANTS.length]}"/></g>`;
+}
+
+function divider(x) {
+  return `<rect x="${x - 5}" y="84" width="10" height="150" rx="3" fill="#c8d6df" stroke="${INK}" stroke-width="2.5"/>`;
+}
+
+const textW = (t, px) => Math.min(150, [...String(t)].length * px * 0.58 + 18);
+function tag(x, text) {
+  const w = textW(text, 13);
+  return `<g><rect x="${x - w / 2}" y="4" width="${w}" height="24" rx="12" fill="#ffd23f" stroke="${INK}" stroke-width="2"/>
+    <text x="${x}" y="21" text-anchor="middle" font-size="13" font-weight="800" fill="${INK}" font-family="system-ui,sans-serif">${esc(text)}</text></g>`;
+}
+function bubble(x, text, flip, kid) {
+  const w = textW(text, 13), y = kid ? 104 : 38, bx = flip ? x - 16 - w : x + 16;
+  const tail = flip ? `M${x - 24} ${y + 26} L${x - 8} ${y + 42} L${x - 34} ${y + 26}` : `M${x + 24} ${y + 26} L${x + 8} ${y + 42} L${x + 34} ${y + 26}`;
+  return `<g><path d="${tail}" fill="#fff" stroke="${INK}" stroke-width="2"/>
+    <rect x="${bx}" y="${y}" width="${w}" height="28" rx="12" fill="#fff" stroke="${INK}" stroke-width="2"/>
+    <text x="${bx + w / 2}" y="${y + 19}" text-anchor="middle" font-size="13" font-weight="700" fill="${INK}" font-family="system-ui,sans-serif">${esc(text)}</text></g>`;
+}
+
 function guy(x, pose, seed, { ghost = false } = {}) {
   const pick = (a, k = 0) => a[(seed * 7 + k * 3) % a.length];
   const shirt = ghost ? '#1e90ff' : pick(SHIRTS), pants = ghost ? '#16457a' : pick(PANTS, 1);
@@ -67,7 +117,10 @@ function guy(x, pose, seed, { ghost = false } = {}) {
   }
 
   const scale = pose === 'kid' ? 0.72 : 1;
-  const g = `<g transform="translate(${x},${FLOOR}) scale(${scale})">
+  const tilt = pose === 'drunk' ? ' rotate(-9)' : '';
+  // drunk: seen from behind, so no face; wobble lines next to him instead
+  if (pose === 'drunk') extra = `<path d="M-46 -150 q-8 10 0 20 q8 10 0 20 M46 -150 q8 10 0 20 q-8 10 0 20" fill="none" stroke="#e76f51" stroke-width="3" stroke-linecap="round"/>`;
+  const g = `<g transform="translate(${x},${FLOOR}) scale(${scale})${tilt}">
     <path d="M${-lx - 9} -4 L-19 -72 L-2 -72 L${-lx + 7} -4Z" fill="${pants}"/>
     <path d="M${lx + 9} -4 L19 -72 L2 -72 L${lx - 7} -4Z" fill="${pants}"/>
     <ellipse cx="${-lx}" cy="-3" rx="12" ry="6" fill="#222"/><ellipse cx="${lx}" cy="-3" rx="12" ry="6" fill="#222"/>
@@ -91,23 +144,25 @@ export function renderScene(s, o = {}) {
 
   s.spots.forEach((kind, i) => {
     const x = cx(i);
-    const occ = s.occupied[i];
+    const raw = s.occupied[i];
+    const occ = typeof raw === 'object' && raw ? raw.pose ?? 'standing' : raw;
     const isCorrect = o.correct?.includes(i);
     const isMine = o.mine === i;
-    const free = kind === 'urinal' || kind === 'stall';
+    const free = kind === 'urinal' || kind === 'stall' || kind === 'low' || kind === 'dirty';
     const pickable = o.pickable && free && !occ;
 
     parts += `<g class="spot${pickable ? ' pickable' : ''}" data-spot="${pickable ? i : ''}">`;
     if (isCorrect) parts += `<rect x="${x - 60}" y="40" width="120" height="${FLOOR - 28}" rx="16" fill="#2ecc71" fill-opacity=".22" stroke="#2ecc71" stroke-width="5"/>`;
     if (pickable) parts += `<rect class="hl" x="${x - 60}" y="40" width="120" height="${FLOOR - 28}" rx="16" fill="#ffd23f" fill-opacity=".28" stroke="#ffd23f" stroke-width="4"/>`;
-    parts += kind === 'stall' ? stall(x) : kind === 'broken' ? broken(x) : urinal(x);
-    if (occ) parts += guy(x, occ, i * 5 + n);
-    if (isMine && !occ && kind !== 'broken') parts += guy(x, 'standing', 3, { ghost: true });
+    const draw = { stall, broken, low, dirty, sink, urinal }[kind] ?? urinal;
+    parts += kind === 'stall' && occ ? occupiedStall(x, i + n) : draw(x);
+    if (occ && kind !== 'stall') parts += guy(x, occ, i * 5 + n);
+    if (isMine && !occ && free) parts += guy(x, 'standing', 3, { ghost: true });
     if (pickable) parts += `<rect x="${x - 62}" y="40" width="124" height="${FLOOR - 24}" fill="transparent"/>`;
     parts += '</g>';
 
     // numbering under the floor
-    parts += `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="13" fill="#9aa7b2" font-family="system-ui,sans-serif">${kind === 'stall' ? 'stall' : i + 1}</text>`;
+    if (kind !== 'sink') parts += `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="13" fill="#9aa7b2" font-family="system-ui,sans-serif">${kind === 'stall' ? 'stall' : i + 1}</text>`;
     if (isMine) parts += `<g><rect x="${x - 26}" y="${FLOOR + 28}" width="52" height="20" rx="10" fill="#1e90ff"/><text x="${x}" y="${FLOOR + 42}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">YOU</text></g>`;
     if (isCorrect) parts += `<g><circle cx="${x + 48}" cy="52" r="16" fill="#2ecc71" stroke="#fff" stroke-width="3"/><path d="M${x + 40} 52 l6 6 l11 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
     if (o.votes && free && !occ) {
@@ -117,6 +172,14 @@ export function renderScene(s, o = {}) {
         <rect x="${x - 18}" y="30" width="36" height="5" rx="2.5" fill="#00000033"/><rect x="${x - 18}" y="30" width="${Math.round(36 * v / maxVotes)}" height="5" rx="2.5" fill="#ffd23f"/>
         <text x="${x}" y="${FLOOR + 22}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="system-ui,sans-serif" stroke="${INK}" stroke-width="3" paint-order="stroke">${pct}%</text></g>`;
     }
+  });
+
+  for (const d of s.dividers ?? []) parts += divider(LEFT + (d + 1) * SPOT_W);
+  s.spots.forEach((kind, i) => {
+    const raw = s.occupied[i];
+    if (!raw || typeof raw !== 'object' || kind === 'stall') return;
+    if (raw.tag) parts += tag(cx(i), raw.tag);
+    if (raw.say) parts += bubble(cx(i), raw.say, i === n - 1, raw.pose === 'kid');
   });
 
   return `<svg class="scene" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">

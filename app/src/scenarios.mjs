@@ -1,11 +1,19 @@
 // Scenarios are data. The client draws them as SVG (public/scene.js).
 //
-// spots     : left -> right, kinds: urinal | stall | broken (out of order, not pickable)
-// occupied  : { spotIndex: pose }   pose: standing | phone | leaning | wide | hips | kid
+// spots     : left -> right. Kinds: urinal | low (kid height) | dirty | stall   (pickable)
+//                                    broken (out of order) | sink               (not pickable)
+// occupied  : { spotIndex: pose } or { spotIndex: { pose, tag, say } }
+//             pose: standing | phone | leaning | wide | hips | kid | drunk
+//             tag = name label over his head ("Your boss"), say = speech bubble.
+//             A guy in a stall is behind a door: he does not count for distance.
+// dividers  : [i, ...] privacy panel between spot i and i+1 (counts as one extra spot of distance)
+// context   : optional line shown to players ("It's half-time at the stadium")
 // correct   : optional override (spot indexes). Otherwise computed by correctSpots().
+// explanation: shown after the reveal. Spot numbers in text are 1-based, like on screen.
 // The room is always entered from the left (the door is drawn on the left).
 
 const row = (n, extra = []) => [...Array(n).fill('urinal'), ...extra];
+const U = 'urinal', LOW = 'low', DIRTY = 'dirty', STALL = 'stall', BROKEN = 'broken', SINK = 'sink';
 
 export const SCENARIOS = [
   {
@@ -80,25 +88,488 @@ export const SCENARIOS = [
     occupied: { 1: 'leaning', 5: 'phone' },
     explanation: 'The middle (spot 4) is the only one that is two urinals from both guys.',
   },
+
+  // ---- plain distance -------------------------------------------------------
+  {
+    id: 'three-middle-taken',
+    title: 'Three urinals, middle one taken',
+    spots: row(3),
+    occupied: { 1: 'standing' },
+    explanation: 'Both free urinals are right next to him. Neither is better: pick one, eyes on the wall.',
+  },
+  {
+    id: 'four-second-taken',
+    title: 'Four urinals, second one taken',
+    spots: row(4),
+    occupied: { 1: 'phone' },
+    explanation: 'Urinal 4 is the only one with a free urinal between you and him.',
+  },
+  {
+    id: 'far-end-taken',
+    title: 'Someone at the far end',
+    spots: row(5),
+    occupied: { 4: 'standing' },
+    explanation: 'Urinal 1, right by the door, is the furthest from him. No shame in it.',
+  },
+  {
+    id: 'door-side-trio',
+    title: 'Small bathroom, guy at the end',
+    spots: row(3),
+    occupied: { 2: 'leaning' },
+    explanation: 'Urinal 1 keeps a free urinal between you.',
+  },
+  {
+    id: 'pair-on-the-right',
+    title: 'Two guys on the right',
+    spots: row(5),
+    occupied: { 3: 'standing', 4: 'phone' },
+    explanation: 'Urinal 1 is three spots away from the closest guy. Easy.',
+  },
+  {
+    id: 'gap-of-two',
+    title: 'Door guy and middle guy',
+    spots: row(6),
+    occupied: { 0: 'standing', 3: 'hips' },
+    explanation: 'Urinal 6 is the only one with a free urinal on its side.',
+  },
+  {
+    id: 'lonely-middle',
+    title: 'Long row, one guy in the middle',
+    spots: row(7),
+    occupied: { 3: 'wide' },
+    explanation: 'Both ends are three urinals away from him.',
+  },
+  {
+    id: 'left-crowd',
+    title: 'Everyone near the door',
+    spots: row(7),
+    occupied: { 0: 'standing', 1: 'phone', 2: 'leaning' },
+    explanation: 'Walk all the way down to urinal 7.',
+  },
+  {
+    id: 'split-seven',
+    title: 'Two guys, symmetric',
+    spots: row(7),
+    occupied: { 2: 'standing', 4: 'phone' },
+    explanation: 'Both ends are two urinals away from the nearest guy. Never take urinal 4 in the middle!',
+  },
+  {
+    id: 'every-other',
+    title: 'Every other urinal taken',
+    spots: row(7),
+    occupied: { 1: 'standing', 3: 'phone', 5: 'leaning' },
+    correct: [0, 6],
+    explanation: 'Every free urinal is next to someone, but the ends have only one neighbour. One neighbour beats two.',
+  },
+  {
+    id: 'sandwich-or-end',
+    title: 'Sandwich or the end?',
+    spots: row(5),
+    occupied: { 1: 'standing', 3: 'leaning' },
+    correct: [0, 4],
+    explanation: 'All free urinals touch someone. The middle one touches two: take an end.',
+  },
+  {
+    id: 'half-time',
+    title: 'Half-time rush',
+    context: 'Stadium bathroom at half-time. Everyone is in a hurry.',
+    spots: row(6),
+    occupied: { 0: 'standing', 2: 'wide', 4: 'phone' },
+    correct: [5],
+    explanation: 'Urinals 2 and 4 put you between two guys; urinal 6 has only one neighbour.',
+  },
+  {
+    id: 'stadium-gap',
+    title: 'Packed stadium',
+    context: 'The match restarts in two minutes.',
+    spots: row(7),
+    occupied: { 0: 'standing', 1: 'leaning', 2: 'phone', 4: 'wide', 5: 'hips' },
+    correct: [6],
+    explanation: 'Urinal 4 is a sandwich. Urinal 7 has a single neighbour.',
+  },
+  {
+    id: 'airport',
+    title: 'Airport, both ends taken',
+    context: 'Your flight is boarding.',
+    spots: row(7),
+    occupied: { 0: 'standing', 6: 'phone' },
+    explanation: 'Urinal 4 is exactly in the middle: three spots from both. Hurry!',
+  },
+  {
+    id: 'leaners',
+    title: 'Two tired guys in the middle',
+    spots: row(6),
+    occupied: { 2: 'leaning', 3: 'leaning' },
+    explanation: 'Both ends are two spots from them.',
+  },
+  {
+    id: 'hands-on-hips',
+    title: 'Hands-free champion',
+    spots: row(6),
+    occupied: { 2: 'hips' },
+    explanation: 'Urinal 6 is three spots away; urinal 1 only two. Give the champion room.',
+  },
+  {
+    id: 'right-heavy',
+    title: 'Busy on the right',
+    spots: row(6),
+    occupied: { 3: 'standing', 5: 'phone' },
+    explanation: 'Urinal 1 is three spots from the nearest guy.',
+  },
+  {
+    id: 'three-and-one',
+    title: 'Corner crowd',
+    spots: row(6),
+    occupied: { 0: 'phone', 1: 'standing', 5: 'leaning' },
+    explanation: 'Urinal 4 is two spots from both groups.',
+  },
+
+  // ---- stalls ---------------------------------------------------------------
+  {
+    id: 'checkerboard-stall',
+    title: 'Checkerboard',
+    spots: row(5, [STALL]),
+    occupied: { 0: 'standing', 2: 'phone', 4: 'leaning' },
+    explanation: 'Every free urinal is between two guys. The stall is the dignified exit.',
+  },
+  {
+    id: 'urinal-free-stall-free',
+    title: 'Plenty of space',
+    spots: row(4, [STALL]),
+    occupied: { 0: 'standing' },
+    explanation: 'Urinal 4 is far away from him. Don\'t hog the stall when a good urinal is free.',
+  },
+  {
+    id: 'ends-and-stall',
+    title: 'Both ends taken, stall free',
+    spots: row(5, [STALL]),
+    occupied: { 0: 'standing', 4: 'phone' },
+    explanation: 'Urinal 3 is two spots from both guys. That is good enough: leave the stall.',
+  },
+  {
+    id: 'stall-guy',
+    title: 'Someone in the stall',
+    spots: row(3, [STALL]),
+    occupied: { 0: 'standing', 3: 'standing' },
+    explanation: 'The guy in the stall is behind a door and doesn\'t count. Urinal 3 is two spots from the other one.',
+  },
+  {
+    id: 'stall-taken-one-free',
+    title: 'One stall busy, one free',
+    spots: [U, U, U, STALL, STALL],
+    occupied: { 0: 'phone', 3: 'standing' },
+    explanation: 'Urinal 3 leaves a gap from the phone guy. The free stall is for emergencies.',
+  },
+  {
+    id: 'full-house-stall',
+    title: 'Only one urinal left',
+    spots: row(4, [STALL]),
+    occupied: { 0: 'standing', 1: 'phone', 3: 'wide' },
+    explanation: 'The last urinal is squeezed between two guys. Take the stall.',
+  },
+  {
+    id: 'stall-by-the-door',
+    title: 'Stall by the door',
+    spots: [STALL, U, U, U],
+    occupied: { 2: 'standing' },
+    explanation: 'Urinals 2 and 4 are both next to him, so the stall wins.',
+  },
+
+  // ---- broken, sinks --------------------------------------------------------
+  {
+    id: 'broken-pair',
+    title: 'Two broken urinals',
+    spots: [U, BROKEN, BROKEN, U, U, U],
+    occupied: { 4: 'standing' },
+    explanation: 'Urinal 1 is four spots away from him. The broken ones count as free space.',
+  },
+  {
+    id: 'broken-then-stall',
+    title: 'Broken urinal, stall at the end',
+    spots: [U, U, BROKEN, U, STALL],
+    occupied: { 0: 'standing', 3: 'phone' },
+    explanation: 'The only free urinal is right next to the door guy. The stall is better.',
+  },
+  {
+    id: 'broken-edges',
+    title: 'Out of order everywhere',
+    spots: [BROKEN, U, U, BROKEN, U],
+    occupied: { 1: 'leaning' },
+    explanation: 'Urinal 5 is three spots from him.',
+  },
+  {
+    id: 'festival',
+    title: 'Festival toilets',
+    context: 'Nobody else is here (for now).',
+    spots: [BROKEN, BROKEN, U, BROKEN, STALL],
+    occupied: {},
+    explanation: 'Use the one urinal that works. Leave the stall for people who need to sit down.',
+  },
+  {
+    id: 'sink-in-the-middle',
+    title: 'Sink in the middle',
+    spots: [U, U, SINK, U, U],
+    occupied: { 1: 'phone' },
+    explanation: 'Urinal 5 is the furthest from him, on the other side of the sink.',
+  },
+  {
+    id: 'sinks-between',
+    title: 'Sinks between the urinals',
+    spots: [U, SINK, U, SINK, U],
+    occupied: { 0: 'standing' },
+    explanation: 'Urinal 5 is the furthest. The sinks just add space.',
+  },
+
+  // ---- dividers -------------------------------------------------------------
+  {
+    id: 'dividers-sandwich',
+    title: 'Sandwich, but with dividers',
+    spots: row(3, [STALL]),
+    occupied: { 0: 'standing', 2: 'phone' },
+    dividers: [0, 1],
+    explanation: 'Normally a sandwich means the stall, but the dividers make urinal 2 fine. Keep the stall free.',
+  },
+  {
+    id: 'one-divider',
+    title: 'One lucky divider',
+    spots: row(5),
+    occupied: { 0: 'standing', 3: 'phone' },
+    dividers: [2],
+    explanation: 'Urinal 3 is two spots from the door guy and has a divider between you and the phone guy.',
+  },
+  {
+    id: 'dividers-everywhere',
+    title: 'Dividers everywhere',
+    spots: row(6),
+    occupied: { 0: 'standing', 2: 'leaning', 4: 'phone' },
+    dividers: [0, 1, 2, 3, 4],
+    explanation: 'With a divider on every side, any free urinal is fine.',
+  },
+  {
+    id: 'divider-gap',
+    title: 'A divider in the middle',
+    spots: row(6),
+    occupied: { 0: 'standing', 4: 'wide' },
+    dividers: [3],
+    explanation: 'Urinal 3 is two spots from both. Urinal 4 too, thanks to the divider.',
+  },
+  {
+    id: 'divider-stall-choice',
+    title: 'Dividers or stall?',
+    spots: row(4, [STALL]),
+    occupied: { 0: 'standing', 2: 'phone' },
+    dividers: [0, 1, 2],
+    explanation: 'Both free urinals have dividers on the busy side. No need for the stall.',
+  },
+
+  // ---- kid-height and dirty urinals -----------------------------------------
+  {
+    id: 'kid-urinal-or-sandwich',
+    title: 'Kid urinal or sandwich?',
+    spots: [U, U, U, LOW],
+    occupied: { 0: 'standing', 2: 'phone' },
+    correct: [3],
+    explanation: 'Being sandwiched is worse than aiming low. Use the kid urinal (carefully).',
+  },
+  {
+    id: 'kid-urinal-by-the-door',
+    title: 'The low one is free',
+    spots: [LOW, U, U, U, U],
+    occupied: { 2: 'standing' },
+    explanation: 'Urinal 5 is as far from him as the kid one, and it\'s your height.',
+  },
+  {
+    id: 'kid-at-the-low-one',
+    title: 'A kid at the low urinal',
+    spots: [LOW, U, U, U],
+    occupied: { 0: 'kid' },
+    explanation: 'Keep your distance from the kid too: urinal 4.',
+  },
+  {
+    id: 'only-low-left',
+    title: 'Only the low one left',
+    spots: [U, LOW, U, STALL],
+    occupied: { 0: 'standing', 2: 'phone' },
+    explanation: 'The kid urinal is between two guys. Use the stall.',
+  },
+  {
+    id: 'dirty-far-end',
+    title: 'The far one is disgusting',
+    spots: [U, U, U, DIRTY],
+    occupied: { 0: 'standing' },
+    explanation: 'Urinal 3 still leaves a gap. No need to wade into the swamp.',
+  },
+  {
+    id: 'dirty-dilemma',
+    title: 'Gap or clean shoes?',
+    spots: [U, U, U, DIRTY],
+    occupied: { 1: 'standing' },
+    correct: [3],
+    explanation: 'Both clean urinals are next to him. The gap wins: step carefully into urinal 4.',
+  },
+  {
+    id: 'dirty-middle',
+    title: 'Dirty one in the middle',
+    spots: [U, U, DIRTY, U, U],
+    occupied: { 0: 'standing', 4: 'phone' },
+    correct: [2],
+    explanation: 'Gross, but it\'s the only one with a free urinal on both sides.',
+  },
+
+  // ---- people ---------------------------------------------------------------
+  {
+    id: 'your-boss',
+    title: 'Your boss is here',
+    spots: row(4),
+    occupied: { 0: { pose: 'standing', tag: 'Your boss' } },
+    explanation: 'Maximum distance, no small talk. He will respect it.',
+  },
+  {
+    id: 'best-mate',
+    title: 'Your best mate',
+    spots: row(5),
+    occupied: { 2: { pose: 'standing', tag: 'Your mate', say: 'Oi! Over here!' } },
+    explanation: 'Friendship stops at the urinal. Keep the gap and talk later.',
+  },
+  {
+    id: 'small-talker',
+    title: 'The small-talker',
+    spots: row(5),
+    occupied: { 0: { pose: 'standing', say: 'Busy day, eh?' } },
+    explanation: 'Urinal 5. Answer politely, eyes on the wall.',
+  },
+  {
+    id: 'your-dad',
+    title: 'Your dad',
+    spots: row(4),
+    occupied: { 1: { pose: 'hips', tag: 'Your dad' } },
+    explanation: 'Urinal 4 is the only one with a gap.',
+  },
+  {
+    id: 'father-in-law',
+    title: 'Your future father-in-law',
+    context: 'First dinner with the family.',
+    spots: row(5),
+    occupied: { 1: { pose: 'standing', tag: 'Father-in-law' } },
+    explanation: 'Urinal 5 is three spots away. Nobody wants to start this relationship side by side.',
+  },
+  {
+    id: 'celebrity',
+    title: 'A famous footballer',
+    spots: row(5),
+    occupied: { 2: { pose: 'phone', tag: 'Famous player' } },
+    explanation: 'Either end. And absolutely no selfie.',
+  },
+  {
+    id: 'ceo-and-intern',
+    title: 'The CEO and the intern',
+    context: 'Office party.',
+    spots: row(5),
+    occupied: { 0: { pose: 'standing', tag: 'CEO' }, 4: { pose: 'phone', tag: 'Intern' } },
+    explanation: 'Urinal 3 is two spots from both. Office politics stay outside.',
+  },
+  {
+    id: 'the-groom',
+    title: 'The groom',
+    context: 'Wedding, 2am.',
+    spots: row(4),
+    occupied: { 0: { pose: 'drunk', tag: 'The groom', say: 'Best day ever!!' } },
+    explanation: 'Congratulate him later, from urinal 4.',
+  },
+  {
+    id: 'drunk-guy',
+    title: 'Very drunk guy',
+    context: 'Nightclub, 3am.',
+    spots: row(5),
+    occupied: { 1: 'drunk' },
+    explanation: 'Stay out of the splash zone: urinal 5.',
+  },
+  {
+    id: 'drunk-at-the-end',
+    title: 'Drunk guy at the end',
+    spots: row(4),
+    occupied: { 3: 'drunk' },
+    explanation: 'Urinal 1 is three spots from his wobbling.',
+  },
+  {
+    id: 'the-whistler',
+    title: 'The whistler',
+    spots: row(5),
+    occupied: { 1: { pose: 'leaning', say: '♪ fiu fiu ♪' } },
+    explanation: 'Urinal 5. You can still hear the song, but from a distance.',
+  },
+  {
+    id: 'the-waver',
+    title: 'He waves at you',
+    spots: row(3),
+    occupied: { 0: { pose: 'standing', say: 'Hey! 👋' } },
+    explanation: 'Wave back (with the free hand) from urinal 3.',
+  },
+  {
+    id: 'phone-call',
+    title: 'Loud phone call',
+    spots: row(4),
+    occupied: { 1: { pose: 'phone', say: '...yeah, I\'m at work' } },
+    explanation: 'Urinal 4: stay out of the background noise of his call.',
+  },
+  {
+    id: 'father-and-son',
+    title: 'Father and son',
+    spots: row(5),
+    occupied: { 3: 'kid', 4: { pose: 'standing', tag: 'His dad' } },
+    explanation: 'Urinal 1, as far as possible from the family.',
+  },
+  {
+    id: 'school-trip',
+    title: 'School trip',
+    context: 'Museum bathroom, a class is visiting.',
+    spots: row(6),
+    occupied: { 0: 'kid', 2: 'kid', 4: 'kid' },
+    correct: [5],
+    explanation: 'Every free urinal touches a kid; urinal 6 only touches one.',
+  },
+  {
+    id: 'gym',
+    title: 'Gym locker room',
+    spots: row(5),
+    occupied: { 2: { pose: 'hips', say: 'Leg day, bro' } },
+    explanation: 'Either end: two spots from him.',
+  },
+  {
+    id: 'two-friends-talking',
+    title: 'Two friends talking across a gap',
+    spots: row(5),
+    occupied: { 0: { pose: 'standing', say: 'And then...' }, 2: { pose: 'standing', say: 'No way!' } },
+    explanation: 'Urinal 2 would put you in the middle of their conversation. Urinal 5 is two spots away.',
+  },
 ];
 
 const byId = new Map(SCENARIOS.map((s) => [s.id, s]));
 export const getScenario = (id) => byId.get(id);
 
-export const isPickable = (s, i) => (s.spots[i] === 'urinal' || s.spots[i] === 'stall') && !(i in s.occupied);
+const PICKABLE = new Set([U, LOW, DIRTY, STALL]);
+export const isPickable = (s, i) => PICKABLE.has(s.spots[i]) && !(i in s.occupied);
 
-// The "correct" spots: maximise the distance to the nearest occupied urinal.
+// The "correct" spots: maximise the distance to the nearest guy at a urinal
+// (a divider counts as one extra spot; a guy in a stall is behind a door).
 // A free stall wins only when the best urinal is directly next to someone.
+// Kid-height and dirty urinals are a last resort.
 export function correctSpots(s) {
   if (s.correct) return s.correct;
-  const occupied = Object.keys(s.occupied).map(Number);
+  const dividers = s.dividers ?? [];
+  const occupied = Object.keys(s.occupied).map(Number).filter((i) => s.spots[i] !== STALL);
   const free = s.spots.map((_, i) => i).filter((i) => isPickable(s, i));
-  const minDist = (i) => (occupied.length ? Math.min(...occupied.map((o) => Math.abs(o - i))) : 99);
-  const urinals = free.filter((i) => s.spots[i] === 'urinal');
-  const stalls = free.filter((i) => s.spots[i] === 'stall');
-  const best = urinals.length ? Math.max(...urinals.map(minDist)) : -1;
-  if (stalls.length && best <= 1) return stalls;
-  return urinals.filter((i) => minDist(i) === best);
+  const dist = (a, b) => Math.abs(a - b) + dividers.filter((d) => d >= Math.min(a, b) && d < Math.max(a, b)).length;
+  const minDist = (i) => (occupied.length ? Math.min(...occupied.map((o) => dist(o, i))) : 99);
+  const farthest = (list) => { const best = Math.max(...list.map(minDist)); return list.filter((i) => minDist(i) === best); };
+  const urinals = free.filter((i) => s.spots[i] === U);
+  const stalls = free.filter((i) => s.spots[i] === STALL);
+  if (urinals.length) {
+    const best = farthest(urinals);
+    return stalls.length && minDist(best[0]) <= 1 ? stalls : best;
+  }
+  if (stalls.length) return stalls;
+  return farthest(free);
 }
 
 // What the players get: everything but the answer.
