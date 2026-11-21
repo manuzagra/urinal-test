@@ -181,7 +181,10 @@ test('language: Spanish by default, English on request, kept by play again; erro
 
 test('jokes: same shape in every language, sandwiches are dialogues, kids never get dick jokes', () => {
   for (const [lang, j] of Object.entries(JOKE_LISTS)) {
-    assert.ok(j.roast.length >= 5 && j.praise.length && j.kid.length, lang);
+    const min = { roast: 25, sandwich: 12, miss: 25, kid: 6, kidMiss: 6, alone: 10, praise: 15 };
+    for (const [k, n] of Object.entries(min)) assert.ok(j[k].length >= n, `${lang}: only ${j[k].length} ${k} jokes`);
+    for (const [k, list] of Object.entries(j)) assert.equal(new Set(list.map(String)).size, list.length, `${lang}: duplicate ${k} joke`);
+    for (const [k, list] of Object.entries(j)) assert.equal(list.length, JOKE_LISTS.es[k].length, `${k}: es/en have different counts`);
     for (const d of j.sandwich) assert.ok(Array.isArray(d) && d.length === 2, `${lang}: sandwich must be [left, right]`);
     assert.ok(j.miss.length >= 5 && j.kidMiss.length && j.alone.length, lang);
     for (const line of [...j.kid, ...j.kidMiss]) assert.doesNotMatch(line, /pito|polla|cacahuete|talla|dick|peanut|size/i, `${lang}: ${line}`);
