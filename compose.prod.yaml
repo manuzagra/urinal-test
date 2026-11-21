@@ -14,7 +14,6 @@ services:
     environment:
       NODE_ENV: production
       DATA_DIR: /data
-      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL is required (public URL)}
     volumes:
       - appdata:/data        # SQLite database lives here
     expose:
