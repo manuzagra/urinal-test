@@ -8,13 +8,15 @@ with the group and the "correct" answer. Idea and plan: [IDEA.md](IDEA.md).
 
 Without VS Code: `make build && make prod-local` → http://localhost:3001.
 
-## Deploy (Coolify, behind your VPN)
-1. Push the repo to GitHub.
-2. Coolify → *New resource* → your repo → build pack **Docker Compose**,
-   compose file `/compose.prod.yaml`.
-3. On service `web` set the domain (e.g. `https://urinal.your-internal-domain`) and
-   port `3000`.
-4. No environment variables are required (invite links use the URL the organizer is on).
-5. Deploy. The SQLite database persists in the `appdata` volume. Check `/healthz`.
+## Deploy (Coolify)
+Production runs on Coolify (server `ovhcloud-production`), project **urinal-test**,
+application **urinal-test** (Docker Compose build pack, file `/compose.prod.yaml`,
+branch `main`, via the Coolify GitHub App).
 
-Friends need access to the VPN (or expose the domain publicly) to open the link.
+- **Release = push to `main`**: Coolify auto-deploys on every push to `main`.
+- Public URL: http://urinario.54.37.229.58.sslip.io (temporary, no DNS needed).
+  For a real domain: add a DNS `A` record pointing to the server IP, then set it on
+  service `web` in Coolify **with port 3000** (e.g. `https://urinario.example.com:3000`;
+  the port tells Traefik where the app listens) and redeploy.
+- No environment variables are required (invite links use the URL the organizer is on).
+- The SQLite database persists in the `appdata` volume. Health check: `/healthz`.
