@@ -73,3 +73,39 @@ test('full game flow: create, join, answer, reveal; nothing leaks before reveal'
     assert.ok(st.results.find((r) => r.scenarioId === sc.id).votes[free].includes(bob.playerId));
   } finally { server.close(); }
 });
+
+test('play again: organizer starts a new round, players follow, situations do not repeat', async () => {
+  const server = createApp(openDb(':memory:'));
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (path, { method = 'GET', body, token } = {}) => {
+    const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token && { 'x-token': token }) }, body: body && JSON.stringify(body) });
+    return { status: r.status, json: await r.json() };
+  };
+  try {
+    const host = (await call('/api/games', { method: 'POST', body: { nickname: 'Host', scenarioCount: 10 } })).json;
+    const bob = (await call(`/api/games/${host.code}/join`, { method: 'POST', body: { nickname: 'Bob' } })).json;
+    await call(`/api/games/${host.code}/start`, { method: 'POST', token: host.token });
+    assert.equal((await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token })).status, 409);
+    await call(`/api/games/${host.code}/reveal`, { method: 'POST', token: host.token });
+    assert.equal((await call(`/api/games/${host.code}/again`, { method: 'POST', token: bob.token })).status, 403);
+
+    const round2 = (await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token })).json;
+    assert.notEqual(round2.code, host.code);
+    const again = (await call(`/api/games/${host.code}/again`, { method: 'POST', token: host.token })).json;
+    assert.deepEqual(again, round2, 'idempotent');
+
+    const old = (await call(`/api/games/${host.code}`, { token: bob.token })).json;
+    assert.equal(old.next, round2.code);
+    assert.equal((await call(`/api/games/${host.code}`)).json.next, undefined, 'outsiders do not see it');
+
+    const bob2 = (await call(`/api/games/${round2.code}/join`, { method: 'POST', body: { nickname: 'Bob' } })).json;
+    const st2 = (await call(`/api/games/${round2.code}`, { token: bob2.token })).json;
+    assert.equal(st2.status, 'lobby');
+    assert.equal(st2.you.isHost, false);
+    assert.equal(st2.players.find((p) => p.isHost).nickname, 'Host');
+    const firstIds = new Set(old.scenarios.map((x) => x.id));
+    assert.equal(st2.scenarios.length, 10);
+    assert.ok(st2.scenarios.every((x) => !firstIds.has(x.id)), 'round 2 repeats a situation');
+  } finally { server.close(); }
+});

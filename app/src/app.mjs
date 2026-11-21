@@ -26,7 +26,9 @@ export function pickScenarios(count, exclude = []) {
 export function createApp(db, { publicDir } = {}) {
   const q = {
     game: db.prepare('SELECT * FROM games WHERE code = ?'),
-    insertGame: db.prepare('INSERT INTO games (code, scenario_ids, created_at) VALUES (?, ?, ?)'),
+    insertGame: db.prepare('INSERT INTO games (code, scenario_ids, history, created_at) VALUES (?, ?, ?, ?)'),
+    setNext: db.prepare('UPDATE games SET next_code = ? WHERE code = ?'),
+    hostOf: db.prepare('SELECT * FROM players WHERE game_code = ? AND is_host = 1'),
     setStatus: db.prepare('UPDATE games SET status = ? WHERE code = ?'),
     players: db.prepare('SELECT id, nickname, is_host FROM players WHERE game_code = ? ORDER BY id'),
     playerByToken: db.prepare('SELECT * FROM players WHERE game_code = ? AND token = ?'),
@@ -64,6 +66,14 @@ export function createApp(db, { publicDir } = {}) {
     return { playerId: Number(r.lastInsertRowid), token };
   }
 
+  function newGame(hostNickname, count, exclude = [], history = []) {
+    const ids = pickScenarios(count, [...history, ...(Array.isArray(exclude) ? exclude : [])]);
+    q.purge.run(Date.now() - MAX_AGE_MS);
+    const c = newCode();
+    q.insertGame.run(c, JSON.stringify(ids), JSON.stringify([...new Set([...history, ...ids])]), Date.now());
+    return { code: c, ...addPlayer(c, hostNickname, true) };
+  }
+
   function state(game, me) {
     const players = q.players.all(game.code);
     const answers = q.answers.all(game.code);
@@ -79,6 +89,7 @@ export function createApp(db, { publicDir } = {}) {
       you: me ? { id: me.id, nickname: me.nickname, isHost: !!me.is_host } : null,
     };
     if (!me) return out; // anonymous visitor: only enough to show a join form
+    if (game.next_code) out.next = game.next_code;
 
     out.scenarios = ids.map((id) => publicScenario(getScenario(id)));
     out.myAnswers = Object.fromEntries(answers.filter((a) => a.player_id === me.id).map((a) => [a.scenario_id, a.spot]));
@@ -105,18 +116,14 @@ export function createApp(db, { publicDir } = {}) {
 
   // ---- API -----------------------------------------------------------------
   async function api(req, url, body) {
-    const m = url.pathname.match(/^\/api\/games(?:\/([A-Za-z]{4}))?(?:\/(join|answers|start|reveal))?$/);
+    const m = url.pathname.match(/^\/api\/games(?:\/([A-Za-z]{4}))?(?:\/(join|answers|start|reveal|again))?$/);
     if (!m) throw new HttpError(404, 'Not found');
     const [, code, action] = m;
 
     if (!code) {
       if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
       const nickname = cleanName(body.nickname);
-      const ids = pickScenarios(body.scenarioCount, body.exclude);
-      q.purge.run(Date.now() - MAX_AGE_MS);
-      const c = newCode();
-      q.insertGame.run(c, JSON.stringify(ids), Date.now());
-      return { code: c, ...addPlayer(c, nickname, true) };
+      return newGame(nickname, body.scenarioCount, body.exclude);
     }
 
     const game = getGame(code);
@@ -142,6 +149,17 @@ export function createApp(db, { publicDir } = {}) {
         requireHost(me);
         if (game.status !== 'revealed') q.setStatus.run('revealed', game.code);
         return state(getGame(code), me);
+      case 'again': { // organizer starts a new round for the same group, with new situations
+        requireHost(me);
+        if (game.status !== 'revealed') throw new HttpError(409, 'Reveal the results first');
+        if (game.next_code) {
+          const host = q.hostOf.get(game.next_code);
+          if (host) return { code: game.next_code, playerId: host.id, token: host.token };
+        }
+        const r = newGame(me.nickname, JSON.parse(game.scenario_ids).length, body.exclude, JSON.parse(game.history ?? '[]'));
+        q.setNext.run(r.code, game.code);
+        return r;
+      }
       case 'answers': {
         if (!me) throw new HttpError(401, 'Join the game first');
         if (game.status !== 'playing') throw new HttpError(409, 'The game is not accepting answers');

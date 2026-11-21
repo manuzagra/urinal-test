@@ -76,7 +76,7 @@ function homeScreen() {
 
 // ---------------------------------------------------------------- game
 function gameScreen(code) {
-  let st = null, lastKey = '', lastRestKey = '', idx = null, busy = false;
+  let st = null, lastKey = '', lastRestKey = '', idx = null, busy = false, following = false;
   const token = () => store.get('urinal:' + code)?.token;
 
   const apply = (s) => {
@@ -95,7 +95,23 @@ function gameScreen(code) {
       return;
     }
     lastKey = key; lastRestKey = restKey; st = s; render();
+    if (s.next && s.you) followTo(s.next);
   };
+
+  // The organizer started another round: everybody moves to its lobby with the same nickname.
+  async function followTo(next) {
+    if (following) return;
+    following = true;
+    try {
+      if (!store.get('urinal:' + next)?.token) {
+        const r = st.you.isHost
+          ? await api(`/api/games/${code}/again`, { method: 'POST', token: token() })
+          : await api(`/api/games/${next}/join`, { method: 'POST', body: { nickname: st.you.nickname } });
+        store.set('urinal:' + next, { token: r.token });
+      }
+    } catch { /* e.g. nickname taken: the join form on the next page handles it */ }
+    location.href = '/g/' + next;
+  }
   const poll = async () => {
     try { apply(await api(`/api/games/${code}`, { token: token() })); }
     catch (e) {
@@ -208,7 +224,9 @@ function gameScreen(code) {
     }).join('');
     $app.innerHTML = `${header()}
       <div class="card"><h2>🏆 Results</h2><table class="board">${ranked.map((p, i) => `<tr><td>${['🥇', '🥈', '🥉'][i] ?? i + 1 + '.'} ${esc(p.nickname)}${p.id === st.you.id ? ' (you)' : ''}</td><td>${st.scores[p.id]}/${st.total}</td></tr>`).join('')}</table></div>
-      ${cards}<p class="center"><a href="/"><button class="secondary">New game</button></a></p>`;
+      ${st.you.isHost ? '' : '<p class="muted center">If the organizer starts another round, you will be moved there automatically.</p>'}
+      ${cards}<p class="center"><a href="/"><button class="secondary">New game</button></a></p>
+      ${st.you.isHost ? `<div class="hostbar row between"><span>Same group, ${st.total} new situations</span><button data-act="again">Play again</button></div>` : ''}`;
   }
 
   // one delegated click handler for every screen
@@ -220,6 +238,13 @@ function gameScreen(code) {
     if (a === 'copy') { try { await navigator.clipboard.writeText(link()); toast('Link copied!'); } catch { prompt('Copy this link:', link()); } }
     else if (a === 'share') navigator.share({ title: 'Urinal Test', text: 'Play the urinal test with us!', url: link() }).catch(() => {});
     else if (a === 'start') act('start');
+    else if (a === 'again') {
+      try {
+        const r = await api(`/api/games/${code}/again`, { method: 'POST', token: token(), body: { exclude: store.get('urinal:seen') ?? [] } });
+        store.set('urinal:' + r.code, { token: r.token });
+        location.href = '/g/' + r.code;
+      } catch (x) { toast(x.message); }
+    }
     else if (a === 'reveal') {
       const pending = st.players.filter((p) => p.answered < st.total).length;
       if (!pending || confirm(`${pending} player(s) have not finished. Reveal anyway?`)) act('reveal');
