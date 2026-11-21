@@ -16,12 +16,11 @@ WORKDIR /workspace/app
 FROM node:${NODE_MAJOR}-bookworm-slim AS runtime
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
 WORKDIR /srv/app
-# Placeholder server (zero deps). When the real app lands (see IDEA.md §8),
-# replace these lines with its install/build/start steps.
+# Zero dependencies (node:sqlite is built in): nothing to install or build.
 COPY app/ ./
 RUN mkdir -p /data && chown node /data
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "server.mjs"]
+CMD ["node", "--disable-warning=ExperimentalWarning", "server.mjs"]

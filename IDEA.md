@@ -45,14 +45,15 @@ A scenario is **data, rendered as SVG** — no image assets needed.
   "explanation": "Keep max distance; u3 leaves a gap."
 }
 ```
-Scenarios live in a JSON/TS file in the repo (`app/src/scenarios/`), edited by
+Scenarios live in a JSON/TS file in the repo (`app/src/scenarios.mjs`), edited by
 hand. "Correct" = the accepted etiquette answer (maximise distance, avoid
 adjacent, etc.) written by us per scenario. Start with ~10–15 scenarios.
 
 ## 4. Stack (kept deliberately small)
-- **Next.js (TypeScript) + Tailwind**, single container, mobile-first UI.
-- **SQLite** (`better-sqlite3`) in `DATA_DIR` (`/data` volume in prod). One host, a
-  few dozen players: no Postgres/Redis needed.
+- **Plain Node 22 server + vanilla JS/SVG frontend, zero npm dependencies**, single
+  container, mobile-first UI (no build step; chosen over Next.js to keep deploys trivial).
+- **SQLite** via Node's built-in `node:sqlite` in `DATA_DIR` (`/data` volume in prod).
+  One host, a few dozen players: no Postgres/Redis needed.
 - **Live updates by polling** (every ~2s) of a `GET /api/games/:code` state
   endpoint. Simple and robust behind Coolify/Traefik; upgrade to SSE later if wanted.
 - No user accounts. The host is whoever holds the `hostToken` returned at
@@ -77,14 +78,11 @@ adjacent, etc.) written by us per scenario. Start with ~10–15 scenarios.
 `/` (create/join by code) · `/g/[code]` (lobby → play → results, one page
 driven by `status`) · `/g/[code]/host` controls shown only to the host.
 
-## 8. Build order (next steps)
-1. Scaffold Next.js into `app/` (replaces the placeholder `server.mjs`), update the
-   `runtime` stage of the `Dockerfile` (`npm ci && npm run build`, standalone
-   output, keep the `/healthz` route + `HEALTHCHECK`), and `make dev`.
-2. SQLite layer + game/player/answer API.
-3. SVG scenario renderer + 10 scenarios.
-4. Lobby, play, results UI (poll).
-5. Deploy to Coolify, play with friends.
+## 8. Status
+v0 implemented: lobby with invite link/code, 10 scenarios, play flow, organizer
+start/reveal, results (correct spot, votes per spot, who picked what, scoreboard).
+The organizer also plays. Answers are locked once given; the server withholds the
+correct answers and everybody's picks until reveal.
 
-Later ideas (not now): timer per scenario, per-round sync, SSE, custom scenario
-editor, "most controversial scenario" stats, i18n (ES/EN).
+Next ideas: more scenarios (dividers, sinks, more poses), timer per scenario, SSE
+instead of polling, scenario editor, i18n (ES/EN), PR-based flow.
