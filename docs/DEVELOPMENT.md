@@ -2,17 +2,20 @@
 
 ## Where things run — two different servers
 - **Dev VPS** (where the devcontainer runs, reached over SSH from VS Code) is **not**
-  the production server. Production is another VPS running **Coolify behind a VPN**.
-- So from the dev environment you can **not** reach production, the Coolify UI, or its
-  Traefik/`coolify` docker network. Do not assume they exist here (nothing in the dev
-  setup depends on them). Verify the production image locally with `make prod-local`
-  (→ port 3001) and leave the actual deploy to the user in the Coolify UI.
+  the production server. Production is another VPS (`ovhcloud-production`) managed by
+  **Coolify**, whose API *is* reachable from here. URL and API token live only in the
+  gitignored `.env` (`COOLIFY_URL`, `COOLIFY_TOKEN`); use them with
+  `curl -H "Authorization: Bearer $COOLIFY_TOKEN" $COOLIFY_URL/api/v1/...`.
+  Verify the production image locally first with `make prod-local` (→ port 3001).
+- **Public repo**: never write tokens, URLs-with-credentials or `.env` contents into
+  tracked files. `make hooks` enables `.githooks/pre-commit`, which blocks env files,
+  token-looking strings and any secret value from `.env`.
 - A server on the dev VPS is **not** `localhost` on the user's laptop. Open it through
   VS Code's **Ports** tab (forward 3000), or `ssh -L 3000:localhost:3000 ubuntu@<dev-vps>`.
   Friends cannot reach the dev VPS; real multiplayer testing happens after a deploy.
 
 ## Daily workflow
-- In the devcontainer: `make dev` (auto-reload, :3000) and `make test`.
+- Once per clone: `make hooks`. In the devcontainer: `make dev` (auto-reload, :3000) and `make test`.
 - Git: develop only on `develop`-based branches (`feature/…`, `fix/…`, `docs/…`), merge
   back into `develop` with `--no-ff` (PRs later). `main` = releases only, merged from
   `develop` when the user says so. Small, meaningful commits; commit message ends with

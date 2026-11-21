@@ -1,0 +1,29 @@
+#!/bin/sh
+# Blocks commits that would leak secrets (public repo!). Enable with: make hooks
+fail=0
+
+# 1. No env files except the example.
+bad_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$')
+if [ -n "$bad_files" ]; then
+  echo "pre-commit: refusing to commit env file(s):"; echo "$bad_files"; fail=1
+fi
+
+# 2. No token-looking strings in added lines.
+#    Coolify/Laravel Sanctum tokens look like "<n>|<40+ chars>"; also generic keys.
+pattern='[0-9]+\|[A-Za-z0-9]{30,}|(ghp|gho|github_pat)_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(TOKEN|SECRET|PASSWORD|API_KEY)[A-Z_]*[[:space:]]*[=:][[:space:]]*["'\'']?[A-Za-z0-9|_/+.-]{16,}'
+hits=$(git diff --cached -U0 --no-color -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]' | grep -E -- "$pattern")
+if [ -n "$hits" ]; then
+  echo "pre-commit: possible secret in staged changes:"; echo "$hits" | cut -c1-120; fail=1
+fi
+
+# 3. Exact values from local .env must never appear in staged changes.
+if [ -f .env ]; then
+  grep -E '^[A-Z_]*(TOKEN|SECRET|PASSWORD|KEY)[A-Z_]*=' .env | cut -d= -f2- | while read -r v; do
+    [ ${#v} -ge 8 ] || continue
+    if git diff --cached -U0 --no-color | grep -E '^\+' | grep -qF -- "$v"; then
+      echo "pre-commit: a value from .env is in staged changes!"; exit 1
+    fi
+  done || fail=1
+fi
+
+[ $fail -eq 0 ] || { echo "Commit blocked. (Bypass only if you're sure: git commit --no-verify)"; exit 1; }
