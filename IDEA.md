@@ -108,5 +108,12 @@ tempting ends, dividers that do or don't save you, stall guys who don't count, s
 The organizer picks Fácil / Media / Difícil / Aleatoria (equal mix) for every round; the
 level shows as a badge while playing.
 
+v0.6: *Esperar* (wait until someone finishes) is an answer everywhere; it is correct when
+every free spot is a sandwich and no stall is free (15 new situations, 104 in total, incl.
+traps where waiting is wrong). Clearer play screen: situation navigator at the top
+("Situación 3 de 10", no numbered buttons under the scene), dashed outline on tappable
+spots, bigger dividers, "WC 🚽" door, and a legend under each scene explaining dividers,
+WC, broken, kid/dirty urinals and sinks.
+
 Next ideas: timer per scenario, SSE instead of polling, scenario
 editor, i18n (ES/EN).
