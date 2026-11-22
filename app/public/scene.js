@@ -1,5 +1,5 @@
 // Draws a bathroom scenario as SVG. Pure function: (scenario, options) -> string.
-//   options.mine     spot index picked by the player being shown (blue marker)
+//   options.mine     spot index picked by the player being shown (blue marker); WAIT = waiting at the door
 //   options.mineLabel label under that marker (default YOU)
 //   options.correct  [spot indexes] highlighted green (results)
 //   options.votes    { spot: count }  vote bars (results)
@@ -10,6 +10,7 @@
 // occupied[i]: a pose string, or { pose, tag, say } (tag = name label, say = speech bubble)
 // dividers: [i, ...] = a privacy panel between spot i and i+1
 const SPOT_W = 130, LEFT = 64, FLOOR = 272;
+export const WAIT = -1; // the "wait until someone finishes" answer (same as src/scenarios.mjs)
 
 const SHIRTS = ['#e4572e', '#2a9d8f', '#f4a261', '#6a4c93', '#3a86ff', '#8ac926', '#ff6b9d', '#5b6770'];
 const PANTS = ['#355070', '#3d405b', '#2b2d42', '#5c4d3c', '#46494c'];
@@ -38,7 +39,7 @@ function stall(x) {
     <rect x="-48" y="${FLOOR - 22}" width="96" height="22" fill="#cfdcd5"/>
     <rect x="-36" y="68" width="72" height="150" rx="3" fill="#a6c4b5" stroke="${INK}" stroke-width="2"/>
     <circle cx="26" cy="150" r="5" fill="#e8c14a" stroke="${INK}" stroke-width="2"/>
-    <text x="0" y="112" text-anchor="middle" font-size="22" font-weight="800" fill="${INK}" font-family="system-ui,sans-serif">WC</text>
+    <text x="0" y="112" text-anchor="middle" font-size="20" font-weight="800" fill="${INK}" font-family="system-ui,sans-serif">WC 🚽</text>
   </g>`;
 }
 
@@ -77,8 +78,18 @@ function occupiedStall(x, seed) {
     <rect x="-22" y="${FLOOR - 24}" width="44" height="12" rx="3" fill="${PANTS[seed % PANTS.length]}"/></g>`;
 }
 
+// a privacy panel between two urinals: thick, dark, with a wall bracket, so nobody misses it
 function divider(x) {
-  return `<rect x="${x - 5}" y="84" width="10" height="150" rx="3" fill="#c8d6df" stroke="${INK}" stroke-width="2.5"/>`;
+  return `<g><rect x="${x - 9}" y="66" width="18" height="${FLOOR - 96}" rx="4" fill="#6f8796" stroke="${INK}" stroke-width="3"/>
+    <path d="M${x - 4} 80 V${FLOOR - 44}" stroke="#9fb4c2" stroke-width="3" stroke-linecap="round"/>
+    <rect x="${x - 13}" y="${FLOOR - 36}" width="26" height="8" rx="3" fill="#4d5f6b"/></g>`;
+}
+
+// you, waiting by the door because no spot was good enough
+const DOOR_X = 36;
+function waiter(label, k) {
+  return `${guy(DOOR_X, 'standing', 3, { ghost: true })}
+    <text x="${DOOR_X}" y="58" text-anchor="middle" font-size="${15 * k}">⏳</text>`;
 }
 
 // Text inside the scene is scaled with the number of spots (k), so that it stays
@@ -96,12 +107,16 @@ function pill(x, y, text, k, { fill, color, max = Infinity, stroke = '' }) {
     <text x="${x}" y="${y + h / 2 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="${color}" ${FONT}>${esc(text)}</text></g>`;
 }
 const tag = (x, text, k) => pill(x, -15 * k - 6, text, k, { fill: '#ffd23f', color: INK, stroke: `stroke="${INK}" stroke-width="2"` });
-function bubble(x, text, k, { flip, kid, W }) {
+// placed: boxes of bubbles already drawn; a bubble that would cover one moves up a row
+function bubble(x, text, k, { flip, kid, W, placed = [] }) {
   const fs = 13 * k, h = fs * 1.7, w = textW(text, fs);
   const headTop = kid ? FLOOR - 174 * 0.72 - 16 : 76;
-  const y = headTop - h - 10;
+  let y = headTop - h - 10;
   let bx = flip ? x - 10 - w : x + 10;
   bx = Math.max(4, Math.min(W - w - 4, bx));
+  const hits = () => placed.some((b) => bx < b.x + b.w + 4 && b.x < bx + w + 4 && y < b.y + b.h + 4 && b.y < y + h + 4);
+  while (hits()) y -= h + 6;
+  placed.push({ x: bx, y, w, h });
   const tx = flip ? x - 12 : x + 12;
   return `<g><path d="M${tx - 10} ${y + h - 2} L${x} ${headTop} L${tx + 10} ${y + h - 2}" fill="#fff" stroke="${INK}" stroke-width="2"/>
     <rect x="${bx}" y="${y}" width="${w}" height="${h}" rx="${h / 2.4}" fill="#fff" stroke="${INK}" stroke-width="2"/>
@@ -127,7 +142,7 @@ function comics(speech, s, k, W, bottom) {
     const maxW = two ? W / 2 - 10 : Math.min(W - 12, Math.max(SPOT_W * 3.2, W * 0.62));
     const lines = wrap(text, Math.max(8, Math.floor((maxW - 2 * pad) / charW)));
     const w = Math.max(...lines.map((l) => [...l].length)) * charW + 2 * pad, h = lines.length * fs * 1.25 + pad * 1.3;
-    const x = cx(at), lo = two && j === 1 ? W / 2 + 4 : 6, hi = two && j === 0 ? W / 2 - 4 - w : W - 6 - w;
+    const x = at === WAIT ? DOOR_X : cx(at), lo = two && j === 1 ? W / 2 + 4 : 6, hi = two && j === 0 ? W / 2 - 4 - w : W - 6 - w;
     const bx = Math.max(lo, Math.min(hi, x - w / 2));
     const headTop = pose(at) === 'kid' ? FLOOR - 174 * 0.72 - 22 : 74;
     return { x, lines, w, h, bx, headTop };
@@ -208,6 +223,7 @@ export function renderScene(s, o = {}) {
 
     parts += `<g class="spot${pickable ? ' pickable' : ''}" data-spot="${pickable ? i : ''}">`;
     if (isCorrect) parts += `<rect x="${x - 60}" y="40" width="120" height="${FLOOR - 28}" rx="16" fill="#2ecc71" fill-opacity=".22" stroke="#2ecc71" stroke-width="5"/>`;
+    if (pickable) parts += `<rect class="pick-hint" x="${x - 58}" y="42" width="116" height="${FLOOR - 32}" rx="14" fill="none" stroke="#e0a800" stroke-width="3.5" stroke-dasharray="12 8"/>`;
     if (pickable) parts += `<rect class="hl" x="${x - 60}" y="40" width="120" height="${FLOOR - 28}" rx="16" fill="#ffd23f" fill-opacity=".28" stroke="#ffd23f" stroke-width="4"/>`;
     const draw = { stall, broken, low, dirty, sink, urinal }[kind] ?? urinal;
     parts += kind === 'stall' && occ ? occupiedStall(x, i + n) : draw(x);
@@ -229,6 +245,11 @@ export function renderScene(s, o = {}) {
   });
 
   for (const d of s.dividers ?? []) parts += divider(LEFT + (d + 1) * SPOT_W);
+  if (o.mine === WAIT) {
+    parts += waiter(o.mineLabel, k);
+    const label = String(o.mineLabel ?? 'you').toUpperCase();
+    parts += pill(Math.max(DOOR_X, Math.min(textW(label, 13 * k), SPOT_W) / 2 + 2), FLOOR + 8, label, k, { fill: '#1e90ff', color: '#fff', max: SPOT_W - 4 });
+  }
   // results jokes: the neighbours talk in comic bubbles above the wall (the scene grows taller)
   let top = TOP;
   const speakers = (o.speech ?? []).map((sp) => sp.at);
@@ -237,12 +258,13 @@ export function renderScene(s, o = {}) {
     parts += c.svg;
     top = TOP + 4 + c.height + 8;
   }
+  const placed = [];
   s.spots.forEach((kind, i) => {
     const raw = s.occupied[i];
     if (!raw || kind === 'stall') return;
     const p = typeof raw === 'object' ? raw : { pose: raw };
     if (p.tag) parts += tag(cx(i), p.tag, k);
-    if (p.say && !speakers.includes(i)) parts += bubble(cx(i), p.say, k, { flip: i >= n / 2, kid: p.pose === 'kid', W });
+    if (p.say && !speakers.includes(i)) parts += bubble(cx(i), p.say, k, { flip: i >= n / 2, kid: p.pose === 'kid', W, placed });
   });
 
   return `<svg class="scene" viewBox="0 ${-top} ${W} ${top + BOTTOM}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(s.title)}">
@@ -266,7 +288,7 @@ export function renderScene(s, o = {}) {
 // How embarrassing a pick is: a wrong pick right next to a guy at a urinal (no divider between).
 // 'kid' when a neighbour is a kid (never a dick joke there), 'sandwich' for two neighbours.
 export function awkward(sc, spot, correct) {
-  if (spot === undefined || correct.includes(spot) || sc.spots[spot] === 'stall') return null;
+  if (spot === undefined || spot === WAIT || correct.includes(spot) || sc.spots[spot] === 'stall') return null;
   const divs = sc.dividers ?? [];
   const pose = (j) => { const o = sc.occupied[j]; return typeof o === 'object' && o ? o.pose ?? 'standing' : o; };
   const near = [spot - 1, spot + 1].filter((j) => pose(j) && sc.spots[j] !== 'stall' && !divs.includes(Math.min(j, spot)));
@@ -276,12 +298,19 @@ export function awkward(sc, spot, correct) {
 
 // Who says what for a wrong pick: awkward() when you stood next to someone, otherwise the
 // nearest guy at a urinal shouts it ('miss'/'kidMiss'), or you talk to yourself ('alone').
+// Waiting when it wasn't needed: 'waitWrong' (or 'waitAlone' in an empty bathroom).
 export function jokeFor(sc, spot, correct) {
   if (spot === undefined || correct.includes(spot)) return null;
-  const aw = awkward(sc, spot, correct);
-  if (aw) return aw;
   const pose = (j) => { const o = sc.occupied[j]; return typeof o === 'object' && o ? o.pose ?? 'standing' : o; };
   const guys = Object.keys(sc.occupied).map(Number).filter((j) => sc.spots[j] !== 'stall');
+  // waited for nothing: the guy closest to the door laughs at you (a kid stays clean), or you sigh alone
+  if (spot === WAIT) {
+    if (!guys.length) return { kind: 'waitAlone', near: [WAIT] };
+    const first = Math.min(...guys);
+    return { kind: pose(first) === 'kid' ? 'kidMiss' : 'waitWrong', near: [first] };
+  }
+  const aw = awkward(sc, spot, correct);
+  if (aw) return aw;
   if (!guys.length) return { kind: 'alone', near: [spot] };
   const nearest = guys.sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot) || b - a)[0];
   return { kind: pose(nearest) === 'kid' ? 'kidMiss' : 'miss', near: [nearest] };

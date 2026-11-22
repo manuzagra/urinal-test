@@ -29,7 +29,10 @@
 ## Architecture in 30 seconds (full spec: IDEA.md)
 - `app/server.mjs` boots `app/src/app.mjs` (HTTP + JSON API + static files) on
   `node:sqlite` (`app/src/db.mjs`). **Zero npm dependencies; needs Node ≥ 22.13.**
-- `app/src/scenarios.mjs`: the 89 situations as data, each with a difficulty in
+- `WAIT` (-1) is a valid answer in every situation ("⏳ Esperar"); `correctSpots()` returns
+  `[WAIT]` when every free spot is a sandwich (guys on both sides, no divider) and no stall is
+  free. The client draws a waiting player by the door.
+- `app/src/scenarios.mjs`: the 104 situations as data, each with a difficulty in
   `LEVEL_IDS` (easy/medium/hard; tests require ≥ 20 per level). `pickScenarios()` in
   `app.mjs` picks by level, or levels in turns for `mixed`. Situations (format documented at the top) +
   `correctSpots()` (farthest from the nearest guy, dividers add distance, guys in stalls
