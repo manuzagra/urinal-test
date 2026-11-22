@@ -2,11 +2,15 @@
 
 ## Where things run — two different servers
 - **Dev VPS** (where the devcontainer runs, reached over SSH from VS Code) is **not**
-  the production server. Production is another VPS (`ovhcloud-production`) managed by
-  **Coolify**, whose API *is* reachable from here. URL and API token live only in the
-  gitignored `.env` (`COOLIFY_URL`, `COOLIFY_TOKEN`); use them with
-  `curl -H "Authorization: Bearer $COOLIFY_TOKEN" $COOLIFY_URL/api/v1/...`.
-  Verify the production image locally first with `make prod-local` (→ port 3001).
+  the production server. It does host the **Coolify control panel** (containers
+  `coolify`, `coolify-db`, … – never touch them). Production runs on the remote server
+  `ovhcloud-production` managed by that Coolify; its API is reachable from here. URL and
+  API token live only in the gitignored `.env` (`COOLIFY_URL`, `COOLIFY_TOKEN`; the token
+  contains a `|`, so read it with `grep … | cut -d= -f2-`, don't `source .env`).
+- Production app: Coolify project `urinal-test`, application `urinal-test`, Docker
+  Compose from `main`, **auto-deploys on push to `main`**. Domain is set on service `web`
+  with port `:3000`. Live at **https://pee-test.manuzagra.es**.
+  Before releasing: `make test` and `make prod-local`; after: check `/healthz`.
 - **Public repo**: never write tokens, URLs-with-credentials or `.env` contents into
   tracked files. `make hooks` enables `.githooks/pre-commit`, which blocks env files,
   token-looking strings and any secret value from `.env`.
@@ -20,12 +24,15 @@
   back into `develop` with `--no-ff` (PRs later). `main` = releases only, merged from
   `develop` when the user says so. Small, meaningful commits; commit message ends with
   the `Co-Authored-By` line from the session reminder. Never commit `.env`.
-- Don't push, merge to `main`, or deploy without being asked.
+- Don't push, merge to `main`, or deploy without being asked (pushing `main` deploys!).
 
 ## Architecture in 30 seconds (full spec: IDEA.md)
 - `app/server.mjs` boots `app/src/app.mjs` (HTTP + JSON API + static files) on
   `node:sqlite` (`app/src/db.mjs`). **Zero npm dependencies; needs Node ≥ 22.13.**
-- `app/src/scenarios.mjs`: the 89 situations as data, each with a difficulty in
+- `WAIT` (-1) is a valid answer in every situation ("⏳ Esperar"); `correctSpots()` returns
+  `[WAIT]` when every free spot is a sandwich (guys on both sides, no divider) and no stall is
+  free. The client draws a waiting player by the door.
+- `app/src/scenarios.mjs`: the 104 situations as data, each with a difficulty in
   `LEVEL_IDS` (easy/medium/hard; tests require ≥ 20 per level). `pickScenarios()` in
   `app.mjs` picks by level, or levels in turns for `mixed`. Situations (format documented at the top) +
   `correctSpots()` (farthest from the nearest guy, dividers add distance, guys in stalls
@@ -75,5 +82,4 @@
 
 ## Status & ideas
 v0 is done and works (see IDEA.md §8). Likely next steps, in the user's priority order:
-iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release (`develop` → `main`) → Coolify
-deploy (README) → timer per scenario, SSE instead of polling, ES/EN.
+iterate on gameplay/visuals with the user (v0.2: 70 situations + play again) → first release v0.5.0 deployed at https://pee-test.manuzagra.es (2026-11-21) → timer per scenario, SSE instead of polling, ES/EN.

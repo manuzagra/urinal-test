@@ -8,7 +8,7 @@
 //             A guy in a stall is behind a door: he does not count for distance.
 // dividers  : [i, ...] privacy panel between spot i and i+1 (counts as one extra spot of distance)
 // context   : optional line shown to players ("It's half-time at the stadium")
-// correct   : optional override (spot indexes). Otherwise computed by correctSpots().
+// correct   : optional override (spot indexes; WAIT = -1 means 'wait until someone finishes'). Otherwise computed by correctSpots().
 // level     : easy | medium | hard (set from LEVEL_IDS below)
 // explanation: shown after the reveal. Spot numbers in text are 1-based, like on screen.
 // The room is always entered from the left (the door is drawn on the left).
@@ -686,14 +686,126 @@ export const SCENARIOS = [
     occupied: { 1: 'standing', 3: 'phone' },
     explanation: 'The kid urinal is a sandwich; urinal 1 has only one neighbour.',
   },
+
+  // ---- waiting is (or is not) the answer -------------------------------------
+  {
+    id: 'only-sandwich-left',
+    title: 'Only the middle one left',
+    spots: row(3),
+    occupied: { 0: 'standing', 2: 'phone' },
+    explanation: 'The only free urinal is a sandwich and there is no stall. Wait a few seconds: someone will finish.',
+  },
+  {
+    id: 'full-row-but-one',
+    title: 'Almost full',
+    spots: row(5),
+    occupied: { 0: 'standing', 1: 'phone', 3: 'leaning', 4: 'hips' },
+    explanation: 'The free one is squeezed between two guys. Wait your turn.',
+  },
+  {
+    id: 'zipping-up',
+    title: 'They are almost done',
+    context: 'The guy by the door is zipping up.',
+    spots: row(4),
+    occupied: { 0: { pose: 'standing', say: 'Almost done!' }, 2: 'phone', 3: 'leaning' },
+    explanation: 'Urinal 2 is a sandwich. Wait: in five seconds urinal 1 is free.',
+  },
+  {
+    id: 'stadium-wait',
+    title: 'Stadium, one hole',
+    context: 'Half-time, everybody is here.',
+    spots: row(7),
+    occupied: { 0: 'standing', 1: 'phone', 2: 'wide', 4: 'leaning', 5: 'hips', 6: 'standing' },
+    explanation: 'The only free one is in the middle of two guys. Wait, the queue moves fast.',
+  },
+  {
+    id: 'phone-call-sandwich',
+    title: 'Sandwiched between calls',
+    spots: row(3),
+    occupied: { 0: { pose: 'phone', say: 'Yes, darling…' }, 2: { pose: 'phone', say: 'Sell! SELL!' } },
+    explanation: 'Getting in between two phone calls? No: wait outside.',
+  },
+  {
+    id: 'two-sandwiches',
+    title: 'Two holes, both bad',
+    spots: row(5),
+    occupied: { 0: 'standing', 2: 'phone', 4: 'leaning' },
+    explanation: 'Both free urinals are sandwiches and there is no stall. Wait.',
+  },
+  {
+    id: 'kid-sandwich',
+    title: 'Between a man and a kid',
+    spots: row(3),
+    occupied: { 0: 'standing', 2: 'kid' },
+    explanation: 'Between two people, one of them a kid. Better wait.',
+  },
+  {
+    id: 'dirty-sandwich-wait',
+    title: 'Dirty and in the middle',
+    spots: [U, DIRTY, U],
+    occupied: { 0: 'standing', 2: 'phone' },
+    explanation: 'The only free one is dirty AND a sandwich. Wait for a clean one.',
+  },
+  {
+    id: 'low-sandwich-wait',
+    title: 'Kid urinal in the middle',
+    spots: [U, LOW, U],
+    occupied: { 0: 'standing', 2: 'leaning' },
+    explanation: 'Aiming low between two guys? No way. Wait.',
+  },
+  {
+    id: 'broken-end-wait',
+    title: 'The free one at the end is broken',
+    spots: [U, U, U, BROKEN],
+    occupied: { 0: 'standing', 2: 'phone' },
+    explanation: 'The end one is out of order and urinal 2 is a sandwich. Wait.',
+  },
+  {
+    id: 'stall-busy-sandwich',
+    title: 'The stall is busy too',
+    spots: [U, U, U, STALL],
+    occupied: { 0: 'standing', 2: 'phone', 3: 'standing' },
+    explanation: 'Urinal 2 is a sandwich and the stall is taken. Wait.',
+  },
+  {
+    id: 'stalls-busy-sandwich',
+    title: 'Both stalls taken',
+    spots: [STALL, U, U, U, STALL],
+    occupied: { 0: 'standing', 1: 'standing', 3: 'phone', 4: 'standing' },
+    explanation: 'Both stalls are taken and urinal 3 is a sandwich. Wait.',
+  },
+  {
+    id: 'no-need-to-wait',
+    title: 'Dividers on both sides',
+    spots: row(3),
+    occupied: { 0: 'standing', 2: 'phone' },
+    dividers: [0, 1],
+    explanation: 'It looks like a sandwich, but the dividers cover you on both sides. No need to wait.',
+  },
+  {
+    id: 'one-divider-go',
+    title: 'One divider is enough here',
+    spots: row(3),
+    occupied: { 0: 'standing', 2: 'leaning' },
+    dividers: [0],
+    explanation: 'With the divider, you only have one neighbour. That is fine: go to urinal 2.',
+  },
+  {
+    id: 'wait-or-end',
+    title: 'Wait or the corner?',
+    spots: row(4),
+    occupied: { 1: 'standing', 3: 'phone' },
+    correct: [0],
+    explanation: 'Urinal 3 is a sandwich, but urinal 1 has only one neighbour. No need to wait.',
+  },
 ];
 
 // Difficulty of every scenario (a test checks each one has exactly one).
 export const LEVELS = ['easy', 'medium', 'hard'];
 const LEVEL_IDS = {
-  easy: 'empty-room one-at-the-door one-in-the-middle both-ends buddies kid three-middle-taken four-second-taken far-end-taken door-side-trio pair-on-the-right lonely-middle left-crowd airport leaners right-heavy urinal-free-stall-free broken-edges festival sink-in-the-middle sinks-between kid-at-the-low-one your-boss best-mate small-talker father-in-law celebrity the-groom drunk-guy drunk-at-the-end the-whistler the-waver father-and-son gym',
-  medium: 'two-guys-one-gap sandwich-and-a-stall out-of-order two-gaps gap-of-two split-seven every-other sandwich-or-end hands-on-hips three-and-one checkerboard-stall ends-and-stall stall-taken-one-free full-house-stall broken-pair dividers-everywhere kid-urinal-by-the-door only-low-left dirty-far-end your-dad ceo-and-intern phone-call two-friends-talking sink-spacing kid-low-trap six-divider-middle class-and-teacher two-sinks-seven both-stalls-busy low-is-a-sandwich',
-  hard: 'half-time stadium-gap stall-guy stall-by-the-door broken-then-stall dividers-sandwich one-divider divider-gap divider-stall-choice kid-urinal-or-sandwich dirty-dilemma dirty-middle school-trip counting-trap broken-no-help divider-by-the-door hidden-gap next-to-the-stall dirty-or-stall seven-two-answers one-stall-busy one-divider-not-enough sink-trap-stall broken-buffers phone-divider',
+  easy: 'empty-room one-at-the-door one-in-the-middle both-ends buddies kid three-middle-taken four-second-taken far-end-taken door-side-trio pair-on-the-right lonely-middle left-crowd airport leaners right-heavy urinal-free-stall-free broken-edges festival sink-in-the-middle sinks-between kid-at-the-low-one your-boss best-mate small-talker father-in-law celebrity the-groom drunk-guy drunk-at-the-end the-whistler the-waver father-and-son gym only-sandwich-left full-row-but-one zipping-up stadium-wait phone-call-sandwich',
+  medium: 'two-guys-one-gap sandwich-and-a-stall out-of-order two-gaps gap-of-two split-seven every-other sandwich-or-end hands-on-hips three-and-one checkerboard-stall ends-and-stall stall-taken-one-free full-house-stall broken-pair dividers-everywhere kid-urinal-by-the-door only-low-left dirty-far-end your-dad ceo-and-intern phone-call two-friends-talking sink-spacing kid-low-trap six-divider-middle class-and-teacher two-sinks-seven both-stalls-busy low-is-a-sandwich two-sandwiches kid-sandwich dirty-sandwich-wait low-sandwich-wait broken-end-wait',
+  hard: 'half-time stadium-gap stall-guy stall-by-the-door broken-then-stall dividers-sandwich one-divider divider-gap divider-stall-choice kid-urinal-or-sandwich dirty-dilemma dirty-middle school-trip counting-trap broken-no-help divider-by-the-door hidden-gap next-to-the-stall dirty-or-stall seven-two-answers one-stall-busy one-divider-not-enough sink-trap-stall broken-buffers phone-divider stall-busy-sandwich stalls-busy-sandwich no-need-to-wait one-divider-go wait-or-end',
 };
 for (const [level, ids] of Object.entries(LEVEL_IDS)) for (const id of ids.split(' ')) {
   const sc = SCENARIOS.find((x) => x.id === id);
@@ -704,22 +816,30 @@ const byId = new Map(SCENARIOS.map((s) => [s.id, s]));
 export const getScenario = (id) => byId.get(id);
 
 const PICKABLE = new Set([U, LOW, DIRTY, STALL]);
-export const isPickable = (s, i) => PICKABLE.has(s.spots[i]) && !(i in s.occupied);
+// WAIT (-1) is always an option: "none of the spots is good, I'll wait until someone finishes".
+export const WAIT = -1;
+export const isPickable = (s, i) => i === WAIT || (PICKABLE.has(s.spots[i]) && !(i in s.occupied));
 
 // The "correct" spots: maximise the distance to the nearest guy at a urinal
 // (a divider counts as one extra spot; a guy in a stall is behind a door).
 // A free stall wins only when the best urinal is directly next to someone.
+// When every free spot is a sandwich and no stall is free, the answer is to WAIT.
 // Kid-height and dirty urinals are a last resort.
 export function correctSpots(s) {
   if (s.correct) return s.correct;
   const dividers = s.dividers ?? [];
   const occupied = Object.keys(s.occupied).map(Number).filter((i) => s.spots[i] !== STALL);
   const free = s.spots.map((_, i) => i).filter((i) => isPickable(s, i));
+  // a "sandwich": a guy at a urinal on both sides, with no divider in between
+  const guyAt = (j) => j in s.occupied && s.spots[j] !== STALL;
+  const sandwich = (i) => [i - 1, i + 1].every((j) => guyAt(j) && !dividers.includes(Math.min(i, j)));
   const dist = (a, b) => Math.abs(a - b) + dividers.filter((d) => d >= Math.min(a, b) && d < Math.max(a, b)).length;
   const minDist = (i) => (occupied.length ? Math.min(...occupied.map((o) => dist(o, i))) : 99);
   const farthest = (list) => { const best = Math.max(...list.map(minDist)); return list.filter((i) => minDist(i) === best); };
   const urinals = free.filter((i) => s.spots[i] === U);
   const stalls = free.filter((i) => s.spots[i] === STALL);
+  // nothing decent and no free stall: wait until someone finishes
+  if (!stalls.length && free.every(sandwich)) return [WAIT];
   if (urinals.length) {
     const best = farthest(urinals);
     return stalls.length && minDist(best[0]) <= 1 ? stalls : best;

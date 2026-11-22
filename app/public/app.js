@@ -1,4 +1,4 @@
-import { renderScene, awkward, jokeFor } from '/scene.js';
+import { renderScene, awkward, jokeFor, WAIT } from '/scene.js';
 import { LANGS, setLang, getLang, t, pick } from '/i18n.js';
 
 const $app = document.getElementById('app');
@@ -31,12 +31,23 @@ function rememberSeen(ids) {
   store.set('urinal:seen', [...seen.filter((id) => !ids.includes(id)), ...ids].slice(-300));
 }
 
-const spotLabel = (sc, k) => t({ stall: 'spot.stall', low: 'spot.low' }[sc.spots[k]] ?? 'spot.urinal', { n: Number(k) + 1 });
+const spotLabel = (sc, k) => (Number(k) === WAIT ? t('spot.wait') : t({ stall: 'spot.stall', low: 'spot.low' }[sc.spots[k]] ?? 'spot.urinal', { n: Number(k) + 1 }));
 const COUNTS = [3, 5, 10, 15, 20, 30];
 const countOptions = (sel) => COUNTS.map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${t(n <= 3 ? 'count.quick' : n >= 20 ? 'count.long' : 'count.n', { n })}</option>`).join('');
 const DIFFS = ['easy', 'medium', 'hard', 'mixed'];
 const levelOptions = (sel) => DIFFS.map((l) => `<option value="${l}"${l === sel ? ' selected' : ''}>${t('level.' + l)}</option>`).join('');
 const levelBadge = (sc) => (sc.level ? `<span class="lvl ${sc.level}">${t('level.' + sc.level)}</span>` : '');
+// What the special things in this bathroom are (people missed dividers and the WC door).
+function legend(sc) {
+  const has = (k) => sc.spots.includes(k);
+  const busyStall = sc.spots.some((k, i) => k === 'stall' && i in sc.occupied);
+  const freeStall = sc.spots.some((k, i) => k === 'stall' && !(i in sc.occupied));
+  const items = [
+    sc.dividers?.length && 'legend.divider', freeStall && 'legend.stall', busyStall && 'legend.busyStall',
+    has('broken') && 'legend.broken', has('low') && 'legend.low', has('dirty') && 'legend.dirty', has('sink') && 'legend.sink',
+  ].filter(Boolean);
+  return items.length ? `<div class="legend"><b>${t('legend.title')}</b>${items.map((k) => `<span>${t(k)}</span>`).join('')}</div>` : '';
+}
 const context = (sc) => (sc.context ? `<p class="context">📍 ${esc(sc.context)}</p>` : '');
 const hash = (str) => { let h = 7; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) | 0; return h; };
 
@@ -205,14 +216,20 @@ function gameScreen(code) {
     const answered = Object.keys(st.myAnswers).length;
     $app.innerHTML = `${header()}
       <div class="card">
-        <div class="row between"><h2>${idx + 1}. ${esc(sc.title)}</h2><span class="muted">${t('play.answered', { n: answered, total: st.total })}</span></div>
-        <div class="progress"><i style="width:${(100 * answered) / st.total}%"></i></div>
+        <div class="sitnav">
+          <button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''} aria-label="${t('play.prev')}">‹</button>
+          <div class="sitnav-mid"><b>${t('play.situation', { n: idx + 1, total: st.total })}</b>
+            <div class="ticks">${st.scenarios.map((s, i) => `<i data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''}${i === idx ? ' cur' : ''}"></i>`).join('')}</div></div>
+          <button class="secondary" data-go="${idx + 1}" ${idx === st.total - 1 ? 'disabled' : ''} aria-label="${t('play.nextSit')}">›</button>
+        </div>
+        <h2>${esc(sc.title)}</h2>
         ${levelBadge(sc)}${context(sc)}
-        <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? t('play.hint') : t('play.locked')}</p>
+        <p class="muted" style="margin:.2em 0 .8em">${mine === undefined ? t('play.hint') : mine === WAIT ? t('play.waited') : t('play.locked')}</p>
         ${renderScene(sc, { mine, mineLabel: t('who.you'), pickable: mine === undefined })}
-        <div class="dots">${st.scenarios.map((s, i) => `<button data-go="${i}" class="${s.id in st.myAnswers ? 'done' : ''} ${i === idx ? 'cur' : ''}">${i + 1}</button>`).join('')}</div>
-        <div class="nav"><button class="secondary" data-go="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>${t('play.back')}</button>
-          <button class="secondary" data-go="${idx + 1}" ${idx === st.total - 1 ? 'disabled' : ''}>${t('play.next')}</button></div>
+        ${legend(sc)}
+        <button class="waitbtn${mine === WAIT ? ' sel' : ''}" data-spot="${WAIT}" ${mine !== undefined ? 'disabled' : ''}>${t('play.wait')}</button>
+        ${mine === undefined ? `<p class="muted small center" style="margin:.3em 0 0">${t('play.waitHint')}</p>` : ''}
+        <p class="muted small center" style="margin:.6em 0 0">${t('play.answered', { n: answered, total: st.total })}</p>
       </div>${hostBar()}`;
   }
 
@@ -268,13 +285,13 @@ function gameScreen(code) {
         speech = aw.kind === 'sandwich' ? aw.near.map((at, j) => ({ at, text: line[j] }))
           : [{ at: aw.kind === 'kid' ? kidAt : aw.near[0], text: line }];
       }
-      const joke = good ? `<p class="praise">${nextJoke('praise')}</p>` : '';
+      const joke = good ? `<p class="praise">${nextJoke(p === WAIT ? 'waitPraise' : 'praise')}</p>` : '';
       const whoPicked = Object.entries(r.votes).sort(([a], [b]) => a - b).map(([k, ids]) => `<div class="small"><b>${label(k)}</b>${r.correct.includes(Number(k)) ? ' ✅' : ''}: ${ids
         .map((id) => `<button class="name${id === viewing ? ' sel' : ''}" data-view="${id}">${esc(name[id])}</button>`).join(' ')}</div>`).join('');
       return `<div class="card"><div class="row between"><h2>${i + 1}. ${esc(sc.title)}</h2>${verdict}</div>
         ${levelBadge(sc)}${context(sc)}
         ${renderScene(sc, { mine: p, mineLabel: isMe ? t('who.you') : name[viewing], correct: r.correct, votes: counts, total: voters, speech })}
-        ${joke}
+        ${legend(sc)}${joke}
         <div class="facts"><div>✅ <b>${t('res.correct')}:</b> ${r.correct.map(label).join(' / ')}</div><div>👥 <b>${t('res.popular')}:</b> ${popular}</div></div>
         <p class="muted small" style="margin:.2em 0">${esc(r.explanation)}</p>${whoPicked}</div>`;
     }).join('');

@@ -5,7 +5,7 @@ import { createApp, pickScenarios } from '../src/app.mjs';
 import { LEVELS } from '../src/scenarios.mjs';
 import { SCENARIOS, correctSpots, isPickable, localize } from '../src/scenarios.mjs';
 import { ES } from '../src/scenarios.es.mjs';
-import { awkward, jokeFor, renderScene } from '../public/scene.js';
+import { awkward, jokeFor, renderScene, WAIT } from '../public/scene.js';
 import { JOKE_LISTS } from '../public/i18n.js';
 
 test('every scenario has a valid, pickable, non-empty correct answer', () => {
@@ -181,7 +181,7 @@ test('language: Spanish by default, English on request, kept by play again; erro
 
 test('jokes: same shape in every language, sandwiches are dialogues, kids never get dick jokes', () => {
   for (const [lang, j] of Object.entries(JOKE_LISTS)) {
-    const min = { roast: 25, sandwich: 12, miss: 25, kid: 6, kidMiss: 6, alone: 10, praise: 15 };
+    const min = { roast: 25, sandwich: 12, miss: 25, kid: 6, kidMiss: 6, alone: 10, praise: 15, waitWrong: 10, waitAlone: 5, waitPraise: 6 };
     for (const [k, n] of Object.entries(min)) assert.ok(j[k].length >= n, `${lang}: only ${j[k].length} ${k} jokes`);
     for (const [k, list] of Object.entries(j)) assert.equal(new Set(list.map(String)).size, list.length, `${lang}: duplicate ${k} joke`);
     for (const [k, list] of Object.entries(j)) assert.equal(list.length, JOKE_LISTS.es[k].length, `${k}: es/en have different counts`);
@@ -226,4 +226,45 @@ test('difficulty: every scenario has a level, enough of each, picking respects i
   const all = pickScenarios(30, [], 'hard');
   assert.equal(all.length, 30, 'refills from other levels when the level runs out');
   assert.equal(new Set(all).size, 30);
+});
+
+test('waiting: an answer everywhere, correct only when every free spot is a sandwich and no stall is free', async () => {
+  const waits = SCENARIOS.filter((x) => correctSpots(x).includes(WAIT));
+  assert.ok(waits.length >= 10, `only ${waits.length} situations where waiting is right`);
+  for (const l of LEVELS) assert.ok(waits.some((x) => x.level === l), `no waiting situation at level ${l}`);
+  assert.deepEqual(correctSpots({ spots: ['urinal', 'urinal', 'urinal'], occupied: { 0: 'standing', 2: 'phone' } }), [WAIT]);
+  assert.deepEqual(correctSpots({ spots: ['urinal', 'urinal', 'urinal'], occupied: { 0: 'standing', 2: 'phone' }, dividers: [0] }), [1], 'one divider: only one neighbour, go');
+  assert.deepEqual(correctSpots({ spots: ['urinal', 'urinal', 'urinal', 'stall'], occupied: { 0: 'standing', 2: 'phone' } }), [3], 'free stall beats waiting');
+  assert.deepEqual(correctSpots({ spots: ['urinal', 'urinal', 'urinal', 'stall'], occupied: { 0: 'standing', 2: 'phone', 3: 'standing' } }), [WAIT], 'busy stall: wait');
+  assert.ok(isPickable(SCENARIOS[0], WAIT));
+
+  // jokes: waiting for nothing is laughed at (a kid stays clean), praise is handled by the client
+  const sc = { spots: ['urinal', 'urinal', 'urinal', 'urinal'], occupied: { 2: 'standing' } };
+  assert.deepEqual(jokeFor(sc, WAIT, [0]), { kind: 'waitWrong', near: [2] });
+  assert.deepEqual(jokeFor({ ...sc, occupied: { 2: 'kid' } }, WAIT, [0]), { kind: 'kidMiss', near: [2] });
+  assert.deepEqual(jokeFor({ ...sc, occupied: {} }, WAIT, [0, 3]), { kind: 'waitAlone', near: [WAIT] });
+  assert.equal(jokeFor(sc, WAIT, [WAIT]), null);
+  assert.equal(awkward(sc, WAIT, [0]), null, 'waiting never counts for the flasher award');
+  assert.ok(renderScene(sc, { mine: WAIT, mineLabel: 'Bob' }).includes('⏳'), 'the waiter is drawn by the door');
+
+  // the API accepts "wait" as an answer and scores it
+  const server = createApp(openDb(':memory:'));
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (path, { method = 'GET', body, token } = {}) => {
+    const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token && { 'x-token': token }) }, body: body && JSON.stringify(body) });
+    return { status: r.status, json: await r.json() };
+  };
+  try {
+    const h = (await call('/api/games', { method: 'POST', body: { nickname: 'H', scenarioCount: 999 } })).json;
+    await call(`/api/games/${h.code}/start`, { method: 'POST', token: h.token });
+    assert.equal((await call(`/api/games/${h.code}/answers`, { method: 'POST', token: h.token, body: { scenarioId: 'only-sandwich-left', spot: WAIT } })).status, 200);
+    assert.equal((await call(`/api/games/${h.code}/answers`, { method: 'POST', token: h.token, body: { scenarioId: 'empty-room', spot: -2 } })).status, 400);
+    await call(`/api/games/${h.code}/reveal`, { method: 'POST', token: h.token });
+    const st = (await call(`/api/games/${h.code}`, { token: h.token })).json;
+    const r = st.results.find((x) => x.scenarioId === 'only-sandwich-left');
+    assert.deepEqual(r.correct, [WAIT]);
+    assert.deepEqual(r.votes[WAIT], [h.playerId]);
+    assert.equal(st.scores[h.playerId], 1);
+  } finally { server.close(); }
 });

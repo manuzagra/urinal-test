@@ -4,6 +4,12 @@
 export const LANGS = { es: 'Español', en: 'English' };
 
 const ES = {
+  'play.situation': 'Situación {n} de {total}', 'play.wait': '⏳ Esperar a que alguien termine', 'play.waitHint': 'Si ningún sitio te convence, espera tu turno.',
+  'play.waited': '⏳ Has decidido esperar. Respuesta bloqueada.', 'play.prev': 'Situación anterior', 'play.nextSit': 'Situación siguiente',
+  'spot.wait': 'esperar ⏳',
+  'legend.title': 'En este baño:', 'legend.divider': '▮ Mampara: separa urinarios y te tapa de ese lado', 'legend.stall': '🚽 WC: váter con puerta. ¡También puedes elegirlo!',
+  'legend.busyStall': '🔴 WC ocupado: hay alguien dentro (no cuenta como vecino)', 'legend.broken': '🚫 Averiado: no se puede usar',
+  'legend.low': '🧒 Urinario bajito, de niño (se puede usar)', 'legend.dirty': '🤢 Sucio (se puede usar… si te atreves)', 'legend.sink': '🚰 Lavabo: no es para mear',
   'app.name': 'El Test del Urinario', 'app.short': 'Test del Urinario',
   'home.tagline': '¿Dónde meas <em>tú</em>? Juega con tus amigos y descubre quién no tiene ni idea de urinarios.',
   'home.create': 'Organiza una partida', 'home.nickname': 'Tu apodo', 'home.count': 'Número de situaciones', 'home.lang': 'Idioma de la partida',
@@ -22,7 +28,7 @@ const ES = {
   'lobby.copied': '¡Enlace copiado!', 'lobby.copyPrompt': 'Copia este enlace:', 'lobby.shareText': '¡Juega al test del urinario con nosotros!',
   'host.in': '{n} jugador(es) dentro', 'host.start': 'Empezar', 'host.finished': '<b>{done}/{n}</b> han terminado', 'host.reveal': 'Ver resultados',
   'host.confirmPending': '{n} jugador(es) aún no han terminado. ¿Mostrar resultados igualmente?',
-  'play.answered': '{n}/{total} respondidas', 'play.hint': 'Entras por la izquierda. <b>Toca donde meas.</b>', 'play.locked': 'Respuesta bloqueada ✓ No hay vuelta atrás.',
+  'play.answered': '{n}/{total} respondidas', 'play.hint': 'Entras por la puerta de la izquierda. <b>Toca el urinario o el WC donde mearías</b> (los marcados en amarillo).', 'play.locked': 'Respuesta bloqueada ✓ No hay vuelta atrás.',
   'play.back': '← Atrás', 'play.next': 'Siguiente →',
   'wait.title': '¡Hecho!', 'wait.host': 'Muestra los resultados cuando estéis todos. Que se suban la bragueta.',
   'wait.player': 'Esperando a que el organizador muestre los resultados… lávate las manos mientras.',
@@ -43,6 +49,12 @@ const ES = {
 };
 
 const EN = {
+  'play.situation': 'Situation {n} of {total}', 'play.wait': '⏳ Wait until someone finishes', 'play.waitHint': 'If no spot feels right, wait your turn.',
+  'play.waited': '⏳ You decided to wait. Answer locked.', 'play.prev': 'Previous situation', 'play.nextSit': 'Next situation',
+  'spot.wait': 'wait ⏳',
+  'legend.title': 'In this bathroom:', 'legend.divider': '▮ Divider: separates urinals and covers you on that side', 'legend.stall': '🚽 WC: toilet with a door. You can pick it too!',
+  'legend.busyStall': '🔴 Busy WC: someone is inside (doesn\'t count as a neighbour)', 'legend.broken': '🚫 Out of order: cannot be used',
+  'legend.low': '🧒 Low kid urinal (you can use it)', 'legend.dirty': '🤢 Dirty (usable… if you dare)', 'legend.sink': '🚰 Sink: not for peeing',
   'app.name': 'The Urinal Test', 'app.short': 'Urinal Test',
   'home.tagline': 'Where would <em>you</em> pee? Play with your friends and find out who has no clue about urinals.',
   'home.create': 'Organize a game', 'home.nickname': 'Your nickname', 'home.count': 'Number of situations', 'home.lang': 'Game language',
@@ -61,7 +73,7 @@ const EN = {
   'lobby.copied': 'Link copied!', 'lobby.copyPrompt': 'Copy this link:', 'lobby.shareText': 'Play the urinal test with us!',
   'host.in': '{n} player(s) in', 'host.start': 'Start game', 'host.finished': '<b>{done}/{n}</b> finished', 'host.reveal': 'Reveal results',
   'host.confirmPending': '{n} player(s) have not finished. Reveal anyway?',
-  'play.answered': '{n}/{total} answered', 'play.hint': 'You came in from the left. <b>Tap where you would pee.</b>', 'play.locked': 'Answer locked ✓ No take-backs.',
+  'play.answered': '{n}/{total} answered', 'play.hint': 'You came in through the door on the left. <b>Tap the urinal or WC where you would pee</b> (the ones outlined in yellow).', 'play.locked': 'Answer locked ✓ No take-backs.',
   'play.back': '← Back', 'play.next': 'Next →',
   'wait.title': 'All done!', 'wait.host': 'Reveal the results when everybody is ready. Zip up first.',
   'wait.player': 'Waiting for the organizer to reveal the results… go wash your hands.',
@@ -90,6 +102,7 @@ const EN = {
 // kidMiss:  same, but the nearest one is a kid -> clean
 // alone:    wrong in an empty bathroom: you talk to yourself
 // praise:   right answer (green line under the scene)
+// waitWrong / waitAlone: you waited but a spot was fine; waitPraise: you rightly waited
 const JOKES = {
   es: {
     roast: [
@@ -206,6 +219,38 @@ const JOKES = {
       'Menos mal que esto no puntúa. Ah, que sí. 😬',
       'Hablando solo en un baño vacío. Así va mi noche. 🌙',
       'Como entre alguien, me pilla en medio. Y con esto. 🤏',
+    ],
+    waitWrong: [
+      '¿Esperando, {who}? Hay sitio de sobra. ¿Miedo escénico? 🎭',
+      'Tranquilo, {who}, nadie te va a mirar. Tampoco habría mucho que ver. 🤏',
+      '¿Te hago una reserva? Hay urinarios libres, hombre. 📋',
+      'Ahí plantado en la puerta como un portero de discoteca. ¡Pasa! 🚪',
+      'Si esperas a que se vacíe el baño entero, te meas encima. 💦',
+      '{who}, ¿esperas una invitación por escrito? ✉️',
+      'Hay sitio, {who}. Lo que no hay es valor. 😏',
+      '¿Vergüenza de mear acompañado… o de comparar? 🤏',
+      'Mientras tú esperabas, yo ya he terminado. Y me he lavado las manos. 🧼',
+      'Esperar está bien cuando hace falta. Hoy no hacía falta. 🤦',
+      '¿Es timidez o es que no la encuentras? 🔍',
+      'El urinario libre te está llamando: «{who}, ven…». 👻',
+    ],
+    waitAlone: [
+      '¿Espero? ¿A quién? Si no hay nadie. 🤦',
+      'El baño entero para mí y yo aquí, en la puerta, como un pasmarote. 🧍',
+      'Estoy esperando a… a nadie. Bien, yo. 👏',
+      'Si sigo esperando, entra alguien y entonces sí que me tocará esperar. ⏳',
+      'Vale, tanta prudencia ya es miedo. 😰',
+      'Esperando en un baño vacío. Mi terapeuta va a flipar. 🛋️',
+    ],
+    waitPraise: [
+      'Paciencia de monje. Nadie te ha visto nada. 🧘',
+      'Saber esperar es de sabios. Y de vejigas fuertes. 💪',
+      'Antes esperar que hacer de relleno del bocadillo. Bien visto. 🥪',
+      'Esperar con dignidad: matrícula de honor. 🎓',
+      'Has esperado como un señor. Tu momento llegará. ⏳',
+      'Ni bocadillo ni mirones. Elección de experto. 😎',
+      'Aguantar también es un arte. 🎨',
+      'La paciencia tiene premio: este. 🏆',
     ],
     praise: [
       'Elegancia urinaria nivel experto. 🎩',
@@ -345,6 +390,38 @@ const JOKES = {
       'Good thing this isn\'t scored. Oh, it is. 😬',
       'Talking to myself in an empty bathroom. That\'s my night. 🌙',
       'If someone walks in, they\'ll catch me in the middle. With this. 🤏',
+    ],
+    waitWrong: [
+      'Waiting, {who}? There\'s plenty of room. Stage fright? 🎭',
+      'Relax, {who}, nobody will look. There wouldn\'t be much to see anyway. 🤏',
+      'Shall I book you a table? There are free urinals, mate. 📋',
+      'Standing at the door like a nightclub bouncer. Come in! 🚪',
+      'If you wait for the whole bathroom to empty, you\'ll wet yourself. 💦',
+      '{who}, waiting for a written invitation? ✉️',
+      'There\'s room, {who}. What\'s missing is courage. 😏',
+      'Shy about peeing in company… or about comparing? 🤏',
+      'While you were waiting, I finished. And washed my hands. 🧼',
+      'Waiting is fine when it\'s needed. Today it wasn\'t. 🤦',
+      'Is it shyness, or can\'t you find it? 🔍',
+      'The free urinal is calling you: "{who}, come here…". 👻',
+    ],
+    waitAlone: [
+      'Wait? For whom? There\'s nobody here. 🤦',
+      'The whole bathroom to myself and I\'m standing at the door like a lemon. 🧍',
+      'I\'m waiting for… nobody. Well done, me. 👏',
+      'If I keep waiting, someone will come in and then I really will have to wait. ⏳',
+      'OK, this much caution is just fear. 😰',
+      'Waiting in an empty bathroom. My therapist is going to love this. 🛋️',
+    ],
+    waitPraise: [
+      'Monk-like patience. Nobody saw a thing. 🧘',
+      'Knowing when to wait is wisdom. And a strong bladder. 💪',
+      'Better to wait than be the sandwich filling. Good call. 🥪',
+      'Waiting with dignity: top marks. 🎓',
+      'You waited like a gentleman. Your moment will come. ⏳',
+      'No sandwich, no peepers. Expert choice. 😎',
+      'Holding it is an art too. 🎨',
+      'Patience pays off: here\'s your reward. 🏆',
     ],
     praise: [
       'Expert-level urinal elegance. 🎩',
